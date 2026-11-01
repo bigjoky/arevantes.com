@@ -6536,3 +6536,22 @@ Estado: publicado en producción el 31/10/2026 con el commit `4d4aba792788ffa235
 | Revisión visual y publicación | Completadas | Escritorio y móvil, regresión, compilación, migración y rutas productivas verificadas |
 
 Verificación parcial: PostgreSQL 17.6, 23 pruebas y 234 aserciones, incluidas carreras reales; 97 pruebas frontend superadas, tipos y compilación correctos. Las pantallas de calendario, vehículos y planificación se han inspeccionado con datos sintéticos a 1440 y 390 px, sin desbordamiento. Regresión global: 1.130 pruebas superadas y 54 omitidas, 15.834 aserciones; despliegue y rutas autenticadas de vehículos, calendario, planificación, agenda, orden y proyecto comprobados; `/up` y `/login` devuelven 200. Workers, scheduler, despliegue y migraciones automáticos continúan desactivados. Los festivos disponibles son los registrados en el calendario existente; no se infieren festivos territoriales. No existe custodia documental específica de vehículos.
+
+## Fiscal y Contabilidad Móvil 07 — 31/10/2026
+
+Estado: adaptación implementada y verificada localmente, sin publicación. Se conservan las rutas, datos,
+permisos y cálculos existentes; las pruebas locales usan datos sintéticos.
+
+| Capacidad | Estado / dependencia | Criterio de aceptación |
+|---|---|---|
+| Diario, plan, mayor, sumas y saldos y detalle de asiento | Tarjetas móviles sobre contratos existentes; tablas conservadas en escritorio | Mostrar cuenta, fecha, concepto, debe, haber y saldo cuando corresponda, con acceso al origen |
+| Borradores y operaciones contables | Protección de navegación y envío en formulario de asiento; confirmación para contabilización y reversión | Conservar cambios al cancelar la salida, impedir envíos simultáneos y mantener errores del servidor |
+| Fiscal y evidencia del modelo 303 | Tarjetas y datos del contrato existente; el 303 es una proyección de trabajo limitada | Mostrar periodo, importes y estado sin confundir la proyección con una declaración presentada |
+| 303 fuera de periodos y supuestos validados; presentación AEAT | Pendiente de reglas fiscales y validación autorizada | No presentar resultados provisionales como declaración oficial ni habilitar presentación ficticia |
+| Modelos sin cálculo o flujos completos | Pendiente de backend y validación fiscal específica | Identificar cada modelo por estado real y verificar cálculos y justificantes antes de declararlo funcional |
+| Teléfonos físicos | Pendiente de validación en iPhone y Android con entorno autorizado | Confirmar navegación, teclado, accesibilidad y áreas seguras sin datos productivos de prueba |
+
+La verificación comprende 103 pruebas frontend, 218 pruebas backend y vistas en
+anchos de 320 a 1440 px. Las 19 pruebas PostgreSQL pendientes y una regresión adicional superaron la
+validación aislada. La comprobación local no implica publicación ni modifica
+reglas fiscales o saldos.

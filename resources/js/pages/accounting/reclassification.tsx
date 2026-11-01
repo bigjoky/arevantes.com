@@ -1,3 +1,4 @@
+import '@/../css/accounting-mobile07.css';
 import { Form, Head, Link, useForm, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 import { AccountInput } from '@/components/accounting/account-input';
@@ -133,7 +134,7 @@ function ReclassificationScreen(p: Props) {
     return (
         <>
             <Head title="Reclasificación contable" />
-            <PageShell>
+            <PageShell className="accounting-mobile07">
                 <PageHeader
                     title="Reclasificación contable"
                     description="Selección supervisada. Los originales se conservan y cada ajuste utiliza su fecha contable real."
@@ -292,7 +293,7 @@ function ReclassificationScreen(p: Props) {
                             se vuelven a validar al confirmar; no se ejecutan
                             líneas protegidas.
                         </p>
-                        <div className="overflow-x-auto">
+                        <div className="hidden overflow-x-auto lg:block">
                             <table className="w-full text-sm">
                                 <thead>
                                     <tr>
@@ -327,7 +328,7 @@ function ReclassificationScreen(p: Props) {
                                                     }}
                                                 />
                                             </td>
-                                            <td id={`line-${l.id}`}>
+                                            <td>
                                                 <Link
                                                     id={`line-${l.id}`}
                                                     href={`/accounting/entries/${l.journal_entry_id}`}
@@ -350,6 +351,50 @@ function ReclassificationScreen(p: Props) {
                                     ))}
                                 </tbody>
                             </table>
+                        </div>
+                        <div className="grid gap-3 lg:hidden">
+                            {p.lines.data.map((l) => (
+                                <article
+                                    key={l.id}
+                                    className="grid min-w-0 gap-2 rounded-lg border p-4 text-sm"
+                                >
+                                    <label className="flex min-h-11 items-center gap-3">
+                                        <input
+                                            type="checkbox"
+                                            aria-label="Seleccionar apunte"
+                                            aria-describedby={`mobile-line-${l.id}`}
+                                            disabled={!!l.blocked_reason}
+                                            checked={!!selected[l.id]}
+                                            onChange={(e) => {
+                                                setSelected({
+                                                    ...selected,
+                                                    [l.id]: e.target.checked,
+                                                });
+                                                reset();
+                                            }}
+                                        />
+                                        <span>Seleccionar apunte</span>
+                                    </label>
+                                    <Link
+                                        id={`mobile-line-${l.id}`}
+                                        href={`/accounting/entries/${l.journal_entry_id}`}
+                                        className="font-semibold"
+                                    >
+                                        {l.number} · {l.entry_date.slice(0, 10)}
+                                    </Link>
+                                    <span>
+                                        {l.code} · {l.description}
+                                    </span>
+                                    <span>
+                                        Debe: {money(l.debit)} · Haber:{' '}
+                                        {money(l.credit)}
+                                    </span>
+                                    <span>
+                                        {l.blocked_reason ??
+                                            'Elegible para revisión'}
+                                    </span>
+                                </article>
+                            ))}
                         </div>
                         <Pagination page={p.lines} noun="apuntes" />
                     </div>

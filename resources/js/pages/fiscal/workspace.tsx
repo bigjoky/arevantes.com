@@ -1,4 +1,4 @@
-import { Form, Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import {
     CalendarClock,
     FileCheck2,
@@ -30,10 +30,10 @@ import {
 } from '@/components/billing/workspace';
 import type { Page } from '@/components/billing/workspace';
 import { PageShell, PageHeader } from '@/components/page-shell';
+import ProjectDialog, { ProjectDialogContent } from '@/components/projects/protected-dialog';
+import Form from '@/components/projects/protected-form';
 import { Button } from '@/components/ui/button';
 import {
-    Dialog,
-    DialogContent,
     DialogHeader,
     DialogTitle,
     DialogTrigger,
@@ -333,8 +333,13 @@ function ReturnTable({ rows }: { rows: Declaration[] }) {
                         <State value={r.status} />
                         <b>{money(r.amount)}</b>
                         <small>Resultado guardado · {date(r.preparedAt)}</small>
-                        {r.receiptHref && (
+                        <small>
+                            {date(r.filedOn)} · {r.reference ?? '—'}
+                        </small>
+                        {r.receiptHref ? (
                             <a href={r.receiptHref}>Descargar justificante</a>
+                        ) : (
+                            <small>Sin evidencia verificada</small>
                         )}
                     </article>
                 ))}
@@ -397,7 +402,13 @@ function Sources({ page }: { page: Page<Source> }) {
                                 key={`${r.source}-${r.id}`}
                             >
                                 <strong>{r.number}</strong>
-                                <span>{date(r.date)}</span>
+                                <span>
+                                    {date(r.date)} ·{' '}
+                                    {r.direction === 'issued'
+                                        ? 'Emitida'
+                                        : 'Recibida'}
+                                </span>
+                                <span>Base: {money(r.base)}</span>
                                 <b>IVA: {money(r.vat)}</b>
                                 <small>Retención: {money(r.withholding)}</small>
                             </Link>
@@ -734,14 +745,14 @@ export default function FiscalWorkspace(p: Props) {
                             action={
                                 p.capabilities.manageTax &&
                                 tab === 'vat' && (
-                                    <Dialog>
+                                    <ProjectDialog>
                                         <DialogTrigger asChild>
                                             <Button>
                                                 <Plus />
                                                 Nuevo tipo
                                             </Button>
                                         </DialogTrigger>
-                                        <DialogContent>
+                                        <ProjectDialogContent>
                                             <DialogHeader>
                                                 <DialogTitle>
                                                     Nuevo tipo impositivo
@@ -806,8 +817,8 @@ export default function FiscalWorkspace(p: Props) {
                                                     </div>
                                                 )}
                                             </Form>
-                                        </DialogContent>
-                                    </Dialog>
+                                        </ProjectDialogContent>
+                                    </ProjectDialog>
                                 )
                             }
                         >
@@ -928,7 +939,19 @@ export default function FiscalWorkspace(p: Props) {
                                                 className="fiscal-record"
                                                 key={r.id}
                                             >
-                                                <strong>{r.name}</strong>
+                                                <strong>
+                                                    #{r.id} · {r.name}
+                                                </strong>
+                                                <span>
+                                                    {r.kind === 'vat'
+                                                        ? 'IVA'
+                                                        : r.kind === 'exempt'
+                                                          ? 'Exención configurada'
+                                                          : r.kind ===
+                                                              'withholding'
+                                                            ? 'Retención'
+                                                            : r.kind}
+                                                </span>
                                                 <b>
                                                     {new Intl.NumberFormat(
                                                         'es-ES',
@@ -942,6 +965,9 @@ export default function FiscalWorkspace(p: Props) {
                                                     {r.is_active
                                                         ? 'Activo'
                                                         : 'Inactivo'}
+                                                </span>
+                                                <span>
+                                                    Sin fechas configuradas
                                                 </span>
                                             </article>
                                         ))}
@@ -1242,7 +1268,7 @@ export default function FiscalWorkspace(p: Props) {
                                     )
                                 }
                             >
-                                <div className="fiscal-scroll">
+                                <div className="fiscal-desktop fiscal-scroll">
                                     <table>
                                         <thead>
                                             <tr>
@@ -1280,6 +1306,31 @@ export default function FiscalWorkspace(p: Props) {
                                             ))}
                                         </tbody>
                                     </table>
+                                </div>
+                                <div className="fiscal-mobile">
+                                    {p.years.map((y) => (
+                                        <article
+                                            className="fiscal-record"
+                                            key={y.id}
+                                        >
+                                            <button
+                                                className="text-left font-semibold"
+                                                onClick={() =>
+                                                    update(
+                                                        'year',
+                                                        String(y.year),
+                                                    )
+                                                }
+                                            >
+                                                {y.year}
+                                            </button>
+                                            <span>
+                                                {date(y.starts_on)} –{' '}
+                                                {date(y.ends_on)}
+                                            </span>
+                                            <State value={y.status} />
+                                        </article>
+                                    ))}
                                 </div>
                                 {!p.years.length && (
                                     <Empty>

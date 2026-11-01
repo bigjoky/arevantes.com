@@ -354,3 +354,39 @@
     color: #102b3e !important;
     border-color: #dfe7e5 !important;
 }
+
+@media (max-width: 1023px) {
+    .accounting-table:not(.accounting-always-table),
+    .accounting-table.accounting-convertible {
+        display: none;
+    }
+    .accounting-mobile-list {
+        display: grid;
+        gap: 8px;
+    }
+    .accounting-mobile-row {
+        display: grid;
+        gap: 8px;
+        min-width: 0;
+        padding: 14px;
+        border: 1px solid #e5eaea;
+        border-radius: 8px;
+        overflow-wrap: anywhere;
+    }
+    .accounting-mobile-row a {
+        min-height: 44px;
+        display: inline-flex;
+        align-items: center;
+    }
+    .accounting-workspace input,
+    .accounting-workspace select,
+    .accounting-workspace textarea {
+        min-width: 0;
+        max-width: 100%;
+        font-size: 16px;
+    }
+    .accounting-workspace button,
+    .accounting-workspace select {
+        min-height: 44px;
+    }
+}

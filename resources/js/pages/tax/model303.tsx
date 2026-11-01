@@ -1,3 +1,4 @@
+import '@/../css/fiscal.css';
 import { Head, Link, router } from '@inertiajs/react';
 import { purchaseIssueLabels } from '@/components/tax/purchase-issue-labels';
 import { Button } from '@/components/ui/button';
@@ -162,7 +163,7 @@ export default function Model303({
     return (
         <>
             <Head title={t('Model 303')} />
-            <main className="flex flex-col gap-6 p-4 md:p-6">
+            <main className="fiscal-mobile07 flex flex-col gap-6 p-4 md:p-6">
                 <header className="flex flex-wrap items-center justify-between gap-3">
                     <h1 className="text-xl font-semibold">{t('Model 303')}</h1>
                     <Button variant="outline" asChild>
@@ -288,7 +289,7 @@ export default function Model303({
                                     <caption className="sr-only">
                                         {t('Saved VAT settlement comparison')}
                                     </caption>
-                                    <thead>
+                                    <thead className="sr-only lg:not-sr-only">
                                         <tr>
                                             {[
                                                 'VAT',
@@ -309,7 +310,7 @@ export default function Model303({
                                     <tbody>
                                         {savedComparison.totals.map((row) => (
                                             <tr
-                                                className="border-t"
+                                                className="mb-3 grid rounded-lg border p-2 lg:mb-0 lg:table-row lg:rounded-none lg:border-x-0 lg:border-b-0 lg:p-0"
                                                 key={row.key}
                                             >
                                                 <th scope="row" className="p-2">
@@ -328,6 +329,15 @@ export default function Model303({
                                                         key={index}
                                                         className="p-2 whitespace-nowrap tabular-nums"
                                                     >
+                                                        <span className="mr-1 font-medium after:content-[':'] lg:hidden">
+                                                            {t(
+                                                                [
+                                                                    'Saved settlement',
+                                                                    '303 candidate',
+                                                                    'Difference',
+                                                                ][index],
+                                                            )}
+                                                        </span>
                                                         {value === null
                                                             ? '—'
                                                             : amount(value)}
@@ -394,7 +404,7 @@ export default function Model303({
                             <caption className="sr-only">
                                 {t('303 reconciliation')}
                             </caption>
-                            <thead>
+                            <thead className="sr-only lg:not-sr-only">
                                 <tr>
                                     {[
                                         'VAT',
@@ -419,7 +429,7 @@ export default function Model303({
                                 {reconciliation.rows.map((row) => (
                                     <tr
                                         key={row.direction}
-                                        className="border-t"
+                                        className="mb-3 grid rounded-lg border p-2 lg:mb-0 lg:table-row lg:rounded-none lg:border-x-0 lg:border-b-0 lg:p-0"
                                     >
                                         <th scope="row" className="p-2">
                                             {t(
@@ -440,6 +450,18 @@ export default function Model303({
                                                 key={index}
                                                 className="p-2 whitespace-nowrap tabular-nums"
                                             >
+                                                <span className="mr-1 font-medium after:content-[':'] lg:hidden">
+                                                    {t(
+                                                        [
+                                                            '303 candidate',
+                                                            'VAT books',
+                                                            'VAT ledger',
+                                                            'Difference vs books',
+                                                            'Difference vs ledger',
+                                                            'Unexplained difference',
+                                                        ][index],
+                                                    )}
+                                                </span>
                                                 {value === null
                                                     ? '—'
                                                     : amount(value)}
@@ -643,7 +665,7 @@ function EvidenceList({ rows }: { rows: Evidence[] }) {
                     <caption className="sr-only">
                         {t('Source evidence')}
                     </caption>
-                    <thead>
+                    <thead className="sr-only lg:not-sr-only">
                         <tr>
                             <th className="p-2">{t('Document')}</th>
                             <th className="p-2">{t('Taxable base')}</th>
@@ -654,7 +676,7 @@ function EvidenceList({ rows }: { rows: Evidence[] }) {
                     <tbody>
                         {rows.map((row, index) => (
                             <tr
-                                className="border-t"
+                                className="mb-3 grid rounded-lg border p-2 lg:mb-0 lg:table-row lg:rounded-none lg:border-x-0 lg:border-b-0 lg:p-0"
                                 key={`${row.source_type}-${row.source_id}-${index}`}
                             >
                                 <td className="p-2">
@@ -713,18 +735,27 @@ function EvidenceList({ rows }: { rows: Evidence[] }) {
                                     ) : null}
                                 </td>
                                 <td className="p-2 tabular-nums">
+                                    <span className="mr-1 font-medium after:content-[':'] lg:hidden">
+                                        {t('Taxable base')}
+                                    </span>
                                     {new Intl.NumberFormat(locale, {
                                         minimumFractionDigits: 2,
                                         maximumFractionDigits: 2,
                                     }).format(row.base)}
                                 </td>
                                 <td className="p-2 tabular-nums">
+                                    <span className="mr-1 font-medium after:content-[':'] lg:hidden">
+                                        {t('VAT')}
+                                    </span>
                                     {new Intl.NumberFormat(locale, {
                                         minimumFractionDigits: 2,
                                         maximumFractionDigits: 2,
                                     }).format(row.vat)}
                                 </td>
                                 <td className="p-2 tabular-nums">
+                                    <span className="mr-1 font-medium after:content-[':'] lg:hidden">
+                                        {t('Deductible VAT')}
+                                    </span>
                                     {row.deductible_vat === null ||
                                     row.deductible_vat === undefined
                                         ? '—'

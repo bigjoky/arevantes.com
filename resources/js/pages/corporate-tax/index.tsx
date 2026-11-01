@@ -1,10 +1,13 @@
-import { Form, Head, Link, router, usePage } from '@inertiajs/react';
+import '@/../css/fiscal.css';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { ArrowLeft, Download, FileCheck2, Landmark } from 'lucide-react';
+import ProjectDialog, {
+    ProjectDialogContent,
+} from '@/components/projects/protected-dialog';
+import Form from '@/components/projects/protected-form';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
-    Dialog,
-    DialogContent,
     DialogHeader,
     DialogTitle,
     DialogTrigger,
@@ -18,6 +21,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import ConfirmSubmit from '@/pages/human-resources/confirm-submit';
 type FY = { id: number; year: number; status: string };
 type Preview = {
     accounting_result: number;
@@ -73,7 +77,7 @@ export default function CorporateTax({
     return (
         <>
             <Head title="Corporate tax" />
-            <div className="flex flex-1 flex-col gap-6 p-4 md:p-6">
+            <div className="fiscal-mobile07 flex flex-1 flex-col gap-6 p-4 md:p-6">
                 <header className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                         <h1 className="text-xl font-semibold">Corporate tax</h1>
@@ -144,7 +148,7 @@ export default function CorporateTax({
                             name="fiscal_year_id"
                             value={fiscalYear.id}
                         />
-                        <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="grid gap-4 lg:grid-cols-2">
                             <Field label="Tax regime">
                                 <Select
                                     name="regime"
@@ -152,7 +156,7 @@ export default function CorporateTax({
                                         taxReturn?.regime || 'general'
                                     }
                                 >
-                                    <SelectTrigger>
+                                    <SelectTrigger aria-label="Tax regime">
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -174,6 +178,7 @@ export default function CorporateTax({
                             <Field label="Prior-year net revenue">
                                 <MoneyInput
                                     name="prior_year_revenue"
+                                    label="Prior-year net revenue"
                                     value={taxReturn?.prior_year_revenue}
                                 />
                             </Field>
@@ -182,11 +187,12 @@ export default function CorporateTax({
                             <h2 className="mb-3 font-semibold">
                                 Tax adjustments
                             </h2>
-                            <div className="grid gap-4 sm:grid-cols-2">
+                            <div className="grid gap-4 lg:grid-cols-2">
                                 {fields.map(([name, label]) => (
                                     <Field key={name} label={label}>
                                         <MoneyInput
                                             name={name}
+                                            label={label}
                                             value={taxReturn?.[name]}
                                         />
                                     </Field>
@@ -194,9 +200,12 @@ export default function CorporateTax({
                             </div>
                         </section>
                         {admin ? (
-                            <Button disabled={immutable}>
+                            <ConfirmSubmit
+                                disabled={immutable}
+                                description="Se guardará el cálculo para su revisión; no se presentará ante la AEAT."
+                            >
                                 <FileCheck2 /> Calculate and prepare
-                            </Button>
+                            </ConfirmSubmit>
                         ) : (
                             <p className="text-sm text-muted-foreground">
                                 An administrator must prepare the tax
@@ -260,13 +269,13 @@ export default function CorporateTax({
 }
 function Filing({ taxReturn }: { taxReturn: Return }) {
     return (
-        <Dialog>
+        <ProjectDialog>
             <DialogTrigger asChild>
                 <Button>
                     <FileCheck2 /> Record filing
                 </Button>
             </DialogTrigger>
-            <DialogContent>
+            <ProjectDialogContent>
                 <DialogHeader>
                     <DialogTitle>Record Modelo 200 filing</DialogTitle>
                 </DialogHeader>
@@ -276,11 +285,16 @@ function Filing({ taxReturn }: { taxReturn: Return }) {
                     className="grid gap-4"
                 >
                     <Field label="Filing reference">
-                        <Input name="filing_reference" required />
+                        <Input
+                            name="filing_reference"
+                            aria-label="Filing reference"
+                            required
+                        />
                     </Field>
                     <Field label="Filed on">
                         <Input
                             name="filed_on"
+                            aria-label="Filed on"
                             type="date"
                             defaultValue={new Date().toISOString().slice(0, 10)}
                             required
@@ -289,21 +303,33 @@ function Filing({ taxReturn }: { taxReturn: Return }) {
                     <Field label="Official receipt (PDF)">
                         <Input
                             name="receipt"
+                            aria-label="Official receipt (PDF)"
                             type="file"
                             accept="application/pdf,.pdf"
                             required
                         />
                     </Field>
-                    <Button>Mark as filed</Button>
+                    <ConfirmSubmit description="Se registrará la presentación con el justificante aportado.">
+                        Mark as filed
+                    </ConfirmSubmit>
                 </Form>
-            </DialogContent>
-        </Dialog>
+            </ProjectDialogContent>
+        </ProjectDialog>
     );
 }
-function MoneyInput({ name, value }: { name: string; value?: string }) {
+function MoneyInput({
+    name,
+    value,
+    label,
+}: {
+    name: string;
+    value?: string;
+    label: string;
+}) {
     return (
         <Input
             name={name}
+            aria-label={label}
             type="number"
             min="0"
             step="0.01"

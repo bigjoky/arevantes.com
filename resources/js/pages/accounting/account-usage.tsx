@@ -1,3 +1,4 @@
+import '@/../css/accounting-mobile07.css';
 import { Head, Link } from '@inertiajs/react';
 import { Panel } from '@/components/billing/workspace';
 import { PageHeader, PageShell, PaginationBar } from '@/components/page-shell';
@@ -36,7 +37,7 @@ export default function AccountUsage({
     return (
         <>
             <Head title={account.code} />
-            <PageShell mode="full">
+            <PageShell mode="full" className="accounting-mobile07">
                 <PageHeader
                     title={`Usos de ${account.code} · ${account.name}`}
                     description="Consulta de relaciones reales, sin modificar movimientos."

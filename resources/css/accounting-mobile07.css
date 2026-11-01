@@ -1,0 +1,6 @@
+@media (max-width: 1023px) {
+    .accounting-mobile07 { min-width: 0; overflow-wrap: anywhere; padding-bottom: calc(6rem + env(safe-area-inset-bottom)); }
+    .accounting-mobile07 :is(input, select, textarea) { min-width: 0; max-width: 100%; font-size: 16px; }
+    .accounting-mobile07 :is(button, select) { min-height: 44px; }
+    .accounting-mobile07 form .grid { grid-template-columns: minmax(0, 1fr); }
+}

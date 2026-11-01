@@ -1,3 +1,4 @@
+import '@/../css/accounting-mobile07.css';
 import { Head, Link } from '@inertiajs/react';
 import { PartyAccounting } from '@/components/accounting/party-accounting';
 import type { PartyAccountingSummary } from '@/components/accounting/party-accounting';
@@ -25,7 +26,7 @@ export default function PartyLedger({
     return (
         <>
             <Head title="Situación contable" />
-            <PageShell>
+            <PageShell className="accounting-mobile07">
                 <PageHeader
                     title={summary.party.name}
                     description="Situación contable"
@@ -44,7 +45,7 @@ export default function PartyLedger({
                             cuenta compartida no prueba por sí misma la
                             identidad del tercero.
                         </p>
-                        <div className="overflow-x-auto">
+                        <div className="hidden overflow-x-auto lg:block">
                             <table className="w-full text-sm">
                                 <thead>
                                     <tr>
@@ -77,6 +78,28 @@ export default function PartyLedger({
                                     ))}
                                 </tbody>
                             </table>
+                        </div>
+                        <div className="grid gap-3 lg:hidden">
+                            {lines.data.map((l) => (
+                                <article
+                                    key={l.id}
+                                    className="grid min-w-0 gap-2 rounded-lg border p-4 text-sm"
+                                >
+                                    <Link
+                                        className="min-h-11 font-semibold"
+                                        href={`/accounting/entries/${l.journal_entry_id}`}
+                                    >
+                                        {l.number} · {l.entry_date.slice(0, 10)}
+                                    </Link>
+                                    <span>
+                                        {l.code} · {l.description}
+                                    </span>
+                                    <span>
+                                        Debe: {money(l.debit)} · Haber:{' '}
+                                        {money(l.credit)}
+                                    </span>
+                                </article>
+                            ))}
                         </div>
                         <Pagination page={lines} noun="apuntes" />
                     </div>

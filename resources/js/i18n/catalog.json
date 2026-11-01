@@ -26738,5 +26738,73 @@
     "pending or unavailable": {
         "es": "pendiente o no disponible",
         "en": "pending or unavailable"
+    },
+    "Saldo:": {
+        "es": "Saldo:",
+        "en": "Balance:"
+    },
+    "Saldo acumulado:": {
+        "es": "Saldo acumulado:",
+        "en": "Running balance:"
+    },
+    "Saldo inicial:": {
+        "es": "Saldo inicial:",
+        "en": "Opening balance:"
+    },
+    "Saldo final:": {
+        "es": "Saldo final:",
+        "en": "Closing balance:"
+    },
+    "Base:": {
+        "es": "Base:",
+        "en": "Tax base:"
+    },
+    "El asiento se contabilizará y afectará a los saldos.": {
+        "es": "El asiento se contabilizará y afectará a los saldos.",
+        "en": "The entry will be posted and affect account balances."
+    },
+    "Se registrará una reversión del asiento original.": {
+        "es": "Se registrará una reversión del asiento original.",
+        "en": "A reversal of the original entry will be recorded."
+    },
+    "Imputable": {
+        "es": "Imputable",
+        "en": "Postable"
+    },
+    "PGC · personalizada": {
+        "es": "PGC · personalizada",
+        "en": "PGC · customized"
+    },
+    "Se registrará la presentación con el justificante aportado.": {
+        "es": "Se registrará la presentación con el justificante aportado.",
+        "en": "The filing will be recorded with the provided receipt."
+    },
+    "Se guardará el cálculo para su revisión; no se presentará ante la AEAT.": {
+        "es": "Se guardará el cálculo para su revisión; no se presentará ante la AEAT.",
+        "en": "The calculation will be saved for review; it will not be filed with the tax authority."
+    },
+    "Amount:": {
+        "es": "Importe:",
+        "en": "Amount:"
+    },
+    "Journal entry:": {
+        "es": "Asiento:",
+        "en": "Journal entry:"
+    },
+    "Reversal:": {
+        "es": "Reversión:",
+        "en": "Reversal:"
+    },
+    "Ledger balance:": {
+        "es": "Saldo contable:",
+        "en": "Ledger balance:"
+    },
+    "Current:": {
+        "es": "Sin vencer:",
+        "en": "Current:"
+    },
+    "Difference:": {
+        "es": "Diferencia:",
+        "en": "Difference:"
     }
 }

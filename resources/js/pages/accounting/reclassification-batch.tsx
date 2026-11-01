@@ -1,3 +1,4 @@
+import '@/../css/accounting-mobile07.css';
 import { Head, Link } from '@inertiajs/react';
 import { Panel, money } from '@/components/billing/workspace';
 import { PageHeader, PageShell } from '@/components/page-shell';
@@ -32,7 +33,7 @@ export default function BatchResult({
     return (
         <>
             <Head title="Resultado de reclasificación" />
-            <PageShell>
+            <PageShell className="accounting-mobile07">
                 <PageHeader
                     title="Resultado de reclasificación"
                     description={batch.id}

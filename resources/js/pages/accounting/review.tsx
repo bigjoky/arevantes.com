@@ -1,3 +1,4 @@
+import '@/../css/accounting-mobile07.css';
 import { Form, Head, Link } from '@inertiajs/react';
 import { Panel } from '@/components/billing/workspace';
 import { PageHeader, PageShell, PaginationBar } from '@/components/page-shell';
@@ -34,7 +35,7 @@ export default function Review({
     return (
         <>
             <Head title="Revisión contable" />
-            <PageShell mode="full">
+            <PageShell mode="full" className="accounting-mobile07">
                 <PageHeader
                     title="Bandeja de revisión contable"
                     description="Diagnóstico informativo. Ninguna incidencia reclasifica ni modifica el histórico automáticamente."

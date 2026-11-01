@@ -1,3 +1,4 @@
+import '@/../css/accounting-mobile07.css';
 import { Form, Head, Link, router, usePage } from '@inertiajs/react';
 import {
     ArrowLeft,
@@ -23,6 +24,7 @@ import {
     PaginationBar,
 } from '@/components/page-shell';
 import type { PaginationLink } from '@/components/page-shell';
+import ProtectedForm from '@/components/projects/protected-form';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -43,6 +45,8 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { accountingDetail } from '@/lib/accounting/mobile-navigation';
+import ConfirmSubmit from '@/pages/human-resources/confirm-submit';
 import type { JournalDetailExtension } from '@/types/accounting-journal';
 
 type Line = {
@@ -391,7 +395,7 @@ export default function AccountingIndex({
                         : 'Accounting'
                 }
             />
-            <PageShell mode="full">
+            <PageShell mode="full" className="accounting-mobile07">
                 {view !== 'journal' && renderHeader()}
                 {selectedFinancialCategory && (
                     <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border bg-muted/30 px-4 py-3 text-sm">
@@ -1099,7 +1103,7 @@ function Journal({
             )}
             <div className="grid border-t xl:grid-cols-[minmax(0,1.08fr)_minmax(0,1fr)]">
                 <div className="min-w-0 overflow-x-auto pt-3 xl:pr-5">
-                    <table className="w-full min-w-[620px] text-xs">
+                    <table className="hidden w-full min-w-[620px] text-xs lg:table">
                         <thead>
                             <tr className="text-left text-[10px] tracking-wide text-muted-foreground uppercase">
                                 {[
@@ -1177,6 +1181,35 @@ function Journal({
                             ))}
                         </tbody>
                     </table>
+                    <div className="grid gap-3 lg:hidden">
+                        {filtered.map((entry) => (
+                            <article
+                                key={entry.id}
+                                className="grid min-w-0 gap-2 rounded-lg border p-4 text-sm"
+                            >
+                                <span>
+                                    {date(entry.entry_date)} · {entry.number}
+                                </span>
+                                <Link
+                                    href={accountingDetail(
+                                        `/accounting/entries/${entry.id}`,
+                                        page.url,
+                                    )}
+                                    className="min-h-11 font-semibold"
+                                >
+                                    {entry.description}
+                                </Link>
+                                <span>
+                                    {entry.journal?.name ?? '—'} ·{' '}
+                                    {status(entry)}
+                                </span>
+                                <span>
+                                    Debe: {money(total(entry, 'debit'))} ·
+                                    Haber: {money(total(entry, 'credit'))}
+                                </span>
+                            </article>
+                        ))}
+                    </div>
                     {!filtered.length && (
                         <Empty text="No hay asientos que coincidan con los filtros." />
                     )}
@@ -1219,7 +1252,7 @@ function Journal({
                                 {canReverse &&
                                     !selected.reversal &&
                                     selected.entry_kind !== 'reversal' && (
-                                        <Form
+                                        <ProtectedForm
                                             action={`/accounting/entries/${selected.id}/reverse`}
                                             method="post"
                                         >
@@ -1230,11 +1263,15 @@ function Journal({
                                                     'en-CA',
                                                 )}
                                             />
-                                            <Button size="sm" variant="outline">
+                                            <ConfirmSubmit
+                                                size="sm"
+                                                variant="outline"
+                                                description="Se registrará una reversión del asiento original."
+                                            >
                                                 <RotateCcw />
                                                 Revertir asiento
-                                            </Button>
-                                        </Form>
+                                            </ConfirmSubmit>
+                                        </ProtectedForm>
                                     )}
                             </div>
                             <div className="mt-3 flex gap-6 border-b">
@@ -1868,7 +1905,7 @@ function PartyTable({
     return (
         <section className="overflow-x-auto">
             <h2 className="mb-3 text-base font-semibold">{title}</h2>
-            <table className="w-full min-w-[70rem] text-sm">
+            <table className="hidden w-full min-w-[70rem] text-sm lg:table">
                 <thead>
                     <tr className="border-b text-left text-muted-foreground">
                         <th className="py-2">Account</th>
@@ -1915,6 +1952,32 @@ function PartyTable({
                     ))}
                 </tbody>
             </table>
+            <div className="grid gap-3 lg:hidden">
+                {rows.map((row) => (
+                    <article
+                        key={`${row.kind}-${row.id}`}
+                        className="grid min-w-0 gap-2 rounded-lg border p-4 text-sm"
+                    >
+                        <Link
+                            className="min-h-11 font-semibold text-primary"
+                            href={`/accounting?year=${year}&account=${row.accountCode}`}
+                        >
+                            {row.accountCode} · {row.name}
+                        </Link>
+                        <span>Ledger balance: {money(row.ledgerBalance)}</span>
+                        <span>Outstanding: {money(row.outstanding)}</span>
+                        <span>Current: {money(row.current)}</span>
+                        <span>1–30: {money(row.days30)}</span>
+                        <span>31–60: {money(row.days60)}</span>
+                        <span>61–90: {money(row.days90)}</span>
+                        <span>90+: {money(row.older)}</span>
+                        <span>
+                            Difference:{' '}
+                            {money(row.ledgerBalance - row.outstanding)}
+                        </span>
+                    </article>
+                ))}
+            </div>
             {rows.length === 0 && (
                 <Empty
                     text={`No ${title.toLowerCase()} with outstanding balances.`}
@@ -1943,7 +2006,7 @@ function ReportTable({
                 <h2 className="text-base font-semibold">{title}</h2>
                 {note && <strong className="text-sm">{note}</strong>}
             </div>
-            <table className="w-full min-w-[42rem] text-sm">
+            <table className="hidden w-full min-w-[42rem] text-sm lg:table">
                 <thead>
                     <tr className="border-b text-left text-muted-foreground">
                         {headers.map((header, index) => (
@@ -1983,6 +2046,29 @@ function ReportTable({
                     </tr>
                 </tfoot>
             </table>
+            <div className="grid gap-3 lg:hidden">
+                {rows.map((row, index) => (
+                    <article
+                        key={index}
+                        className="grid min-w-0 gap-2 rounded-lg border p-4 text-sm"
+                    >
+                        {row.map((cell, column) => (
+                            <div key={column}>
+                                <strong>{headers[column]}: </strong>
+                                {cell}
+                            </div>
+                        ))}
+                    </article>
+                ))}
+                <div className="grid gap-2 rounded-lg border p-4 text-sm font-semibold">
+                    {footer.map((cell, column) => (
+                        <div key={column}>
+                            <span>{headers[column]}: </span>
+                            {cell}
+                        </div>
+                    ))}
+                </div>
+            </div>
             {rows.length === 0 && <Empty />}
         </section>
     );

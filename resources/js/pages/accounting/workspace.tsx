@@ -1,4 +1,4 @@
-import { Form, Head, Link, router } from '@inertiajs/react';
+import { Form, Head, Link, router, usePage } from '@inertiajs/react';
 import {
     BookOpen,
     CircleDollarSign,
@@ -33,6 +33,7 @@ import type { Page } from '@/components/billing/workspace';
 import { PageHeader, PageShell, PageTabs } from '@/components/page-shell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { accountingDetail } from '@/lib/accounting/mobile-navigation';
 import '@/../css/accounting.css';
 
 export type Entry = {
@@ -194,6 +195,8 @@ export function EntryTable({
     entries: Page<Entry>;
     lines?: boolean;
 }) {
+    const { url: origin } = usePage();
+
     return (
         <>
             <div className="accounting-table">
@@ -290,26 +293,50 @@ export function EntryTable({
             </div>
             <div className="accounting-mobile-list">
                 {entries.data.map((e) => (
-                    <Link
-                        key={e.id}
-                        href={e.href}
-                        className="accounting-mobile-row"
-                    >
+                    <article key={e.id} className="accounting-mobile-row">
                         <span>
                             {date(e.entry_date)} · {e.number}
                         </span>
-                        <strong>{e.description}</strong>
+                        <Link href={accountingDetail(e.href, origin)}>
+                            <strong>{e.description}</strong>
+                        </Link>
                         <span>
-                            {money(e.debit)} <State status={e.status} />
+                            Debe: {money(e.debit)} · Haber: {money(e.credit)}
                         </span>
+                        <span>
+                            {kindLabels[e.entry_kind] ?? e.entry_kind} ·{' '}
+                            <State status={e.status} />
+                        </span>
+                        {e.annotated_description && (
+                            <small>Anotación: {e.annotated_description}</small>
+                        )}
+                        {e.source_reference && (
+                            <small>Documento: {e.source_reference}</small>
+                        )}
+                        {e.creator && <small>Usuario: {e.creator}</small>}
+                        {e.correction_links?.map((c) => (
+                            <Link
+                                key={c.id}
+                                href={
+                                    c.entry_id
+                                        ? `/accounting/entries/${c.entry_id}`
+                                        : e.href
+                                }
+                            >
+                                {c.entry_id
+                                    ? 'Rectificación relacionada'
+                                    : 'Anotación auditada'}
+                            </Link>
+                        ))}
                         {lines &&
                             e.lines.map((l) => (
                                 <small key={l.id}>
-                                    {l.code} · {l.name}: {money(l.debit)} /{' '}
-                                    {money(l.credit)}
+                                    {l.code} · {l.name}{' '}
+                                    {l.description && `· ${l.description}`}:{' '}
+                                    {money(l.debit)} / {money(l.credit)}
                                 </small>
                             ))}
-                    </Link>
+                    </article>
                 ))}
             </div>
             {!entries.total && (
@@ -322,6 +349,7 @@ export function EntryTable({
 
 export default function AccountingWorkspace(p: Props) {
     const { area, filters: f, summary: s } = p;
+    const { url: origin } = usePage();
     const [months, setMonths] = useState(12);
     const base =
         area === 'accounts'
@@ -700,7 +728,7 @@ export default function AccountingWorkspace(p: Props) {
                             kinds={p.kinds}
                         />
                         <Panel title="Plan contable">
-                            <div className="accounting-table accounting-always-table">
+                            <div className="accounting-table accounting-convertible">
                                 <table>
                                     <thead>
                                         <tr>
@@ -754,6 +782,40 @@ export default function AccountingWorkspace(p: Props) {
                                         ))}
                                     </tbody>
                                 </table>
+                            </div>
+                            <div className="accounting-mobile-list">
+                                {p.accounts.data.map((a) => (
+                                    <article
+                                        className="accounting-mobile-row"
+                                        key={a.id}
+                                    >
+                                        <Link
+                                            href={accountingDetail(
+                                                `/accounting/accounts/${a.id}?year=${f.year}`,
+                                                origin,
+                                            )}
+                                        >
+                                            <strong>
+                                                {a.code} · {a.name}
+                                            </strong>
+                                        </Link>
+                                        <span>
+                                            Nivel {a.level} ·{' '}
+                                            {accountTypes[a.type] ?? a.type}
+                                        </span>
+                                        <span>
+                                            Saldo: {money(a.balance)} ·{' '}
+                                            {a.is_active
+                                                ? 'Activa'
+                                                : 'Inactiva'}
+                                        </span>
+                                        <Link
+                                            href={`/accounting?area=reports&view=ledger&account=${a.code}&year=${f.year}`}
+                                        >
+                                            Ver Mayor
+                                        </Link>
+                                    </article>
+                                ))}
                             </div>
                             {!p.accounts.total && (
                                 <Empty>
@@ -827,7 +889,7 @@ export default function AccountingWorkspace(p: Props) {
                                                     Saldo inicial:{' '}
                                                     {money(p.ledger.opening)}
                                                 </p>
-                                                <div className="accounting-table accounting-always-table">
+                                                <div className="accounting-table accounting-convertible">
                                                     <table>
                                                         <thead>
                                                             <tr>
@@ -891,6 +953,55 @@ export default function AccountingWorkspace(p: Props) {
                                                             )}
                                                         </tbody>
                                                     </table>
+                                                </div>
+                                                <div className="accounting-mobile-list">
+                                                    {p.ledger.lines.data.map(
+                                                        (l) => (
+                                                            <article
+                                                                className="accounting-mobile-row"
+                                                                key={l.id}
+                                                            >
+                                                                <Link
+                                                                    href={accountingDetail(
+                                                                        `/accounting/entries/${l.entry_id}`,
+                                                                        origin,
+                                                                    )}
+                                                                >
+                                                                    <strong>
+                                                                        {
+                                                                            l.number
+                                                                        }{' '}
+                                                                        ·{' '}
+                                                                        {date(
+                                                                            l.entry_date,
+                                                                        )}
+                                                                    </strong>
+                                                                </Link>
+                                                                <span>
+                                                                    {
+                                                                        l.description
+                                                                    }
+                                                                </span>
+                                                                <span>
+                                                                    Debe:{' '}
+                                                                    {money(
+                                                                        l.debit,
+                                                                    )}{' '}
+                                                                    · Haber:{' '}
+                                                                    {money(
+                                                                        l.credit,
+                                                                    )}
+                                                                </span>
+                                                                <span>
+                                                                    Saldo
+                                                                    acumulado:{' '}
+                                                                    {money(
+                                                                        l.running,
+                                                                    )}
+                                                                </span>
+                                                            </article>
+                                                        ),
+                                                    )}
                                                 </div>
                                                 <Pagination
                                                     noun="apuntes"
@@ -968,7 +1079,7 @@ export default function AccountingWorkspace(p: Props) {
                                             importes corresponden al intervalo
                                             seleccionado.
                                         </p>
-                                        <div className="accounting-table accounting-always-table">
+                                        <div className="accounting-table accounting-convertible">
                                             <table>
                                                 <thead>
                                                     <tr>
@@ -1015,6 +1126,30 @@ export default function AccountingWorkspace(p: Props) {
                                                     )}
                                                 </tbody>
                                             </table>
+                                        </div>
+                                        <div className="accounting-mobile-list">
+                                            {p.reportAccounts.map((a) => (
+                                                <article
+                                                    className="accounting-mobile-row"
+                                                    key={a.id}
+                                                >
+                                                    <strong>
+                                                        {a.code} · {a.name}
+                                                    </strong>
+                                                    <span>
+                                                        Saldo inicial:{' '}
+                                                        {money(a.opening)}
+                                                    </span>
+                                                    <span>
+                                                        Debe: {money(a.debit)} ·
+                                                        Haber: {money(a.credit)}
+                                                    </span>
+                                                    <span>
+                                                        Saldo final:{' '}
+                                                        {money(a.net)}
+                                                    </span>
+                                                </article>
+                                            ))}
                                         </div>
                                     </Panel>
                                 )}

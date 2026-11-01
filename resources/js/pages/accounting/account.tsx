@@ -1,7 +1,8 @@
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import { Panel, money } from '@/components/billing/workspace';
 import { PageHeader, PageShell } from '@/components/page-shell';
 import { Button } from '@/components/ui/button';
+import { accountingReturn } from '@/lib/accounting/mobile-navigation';
 import { usageNames } from './account-usage';
 import { accountTypes } from './workspace';
 import '@/../css/accounting.css';
@@ -30,6 +31,11 @@ export default function Account({
     canReclassify?: boolean;
     usage?: { type: string; count: number; href: string }[];
 }) {
+    const { url } = usePage();
+    const returnTo = accountingReturn(
+        new URL(url, 'https://arevantes.invalid').searchParams.get('return_to'),
+    );
+
     return (
         <>
             <Head title={account.code} />
@@ -40,7 +46,7 @@ export default function Account({
                     secondaryNavigation={null}
                     actions={
                         <Button variant="outline" asChild>
-                            <Link href={`/accounting/accounts?year=${year}`}>
+                            <Link href={returnTo ?? `/accounting/accounts?year=${year}`}>
                                 Volver al plan contable
                             </Link>
                         </Button>

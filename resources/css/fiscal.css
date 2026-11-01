@@ -310,3 +310,30 @@
         order: -1;
     }
 }
+
+@media (max-width: 1023px) {
+    .fiscal-desktop {
+        display: none;
+    }
+    .fiscal-mobile {
+        display: grid;
+        gap: 10px;
+    }
+    .fiscal-workspace input,
+    .fiscal-workspace select,
+    .fiscal-workspace textarea {
+        min-width: 0;
+        max-width: 100%;
+        font-size: 16px;
+    }
+    .fiscal-workspace button,
+    .fiscal-workspace select {
+        min-height: 44px;
+    }
+}
+
+@media (max-width: 1023px) {
+    .fiscal-mobile07 { min-width: 0; padding-bottom: calc(6rem + env(safe-area-inset-bottom)); overflow-wrap: anywhere; }
+    .fiscal-mobile07 :is(input, select, textarea) { min-width: 0; max-width: 100%; font-size: 16px; }
+    .fiscal-mobile07 :is(button, select) { min-height: 44px; }
+}

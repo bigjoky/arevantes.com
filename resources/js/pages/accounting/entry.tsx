@@ -1,12 +1,16 @@
-import { Form, Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import { ArrowLeft, Plus, Save, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { roleNames } from '@/components/accounting/account-input';
 import { JournalCorrectionPanel } from '@/components/accounting/journal-correction';
 import { Panel, date, money } from '@/components/billing/workspace';
 import { PageHeader, PageShell } from '@/components/page-shell';
+import Form from '@/components/projects/protected-form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useOperationsFormProtection } from '@/hooks/use-operations-form-protection';
+import { accountingReturn } from '@/lib/accounting/mobile-navigation';
+import ConfirmSubmit from '@/pages/human-resources/confirm-submit';
 import { State } from './workspace';
 import type { Entry, Line } from './workspace';
 import '@/../css/accounting.css';
@@ -60,6 +64,13 @@ export default function JournalEntry({
     initialAccount?: string;
     postingAccounts: { code: string; name: string }[];
 }) {
+    const { url } = usePage();
+    const returnTo =
+        accountingReturn(
+            new URL(url, 'https://arevantes.invalid').searchParams.get(
+                'return_to',
+            ),
+        ) ?? '/accounting?area=entries';
     const [editing, setEditing] = useState(!entry);
     const form = useForm({
         entry_date: entry?.entry_date ?? new Date().toLocaleDateString('en-CA'),
@@ -93,16 +104,28 @@ export default function JournalEntry({
                 i === n ? { ...l, [key]: value } : l,
             ),
         );
-    const save = () =>
-        entry
-            ? form.patch(`/accounting/drafts/${entry.id}`, {
-                  onSuccess: () => setEditing(false),
-              })
-            : form.post('/accounting/drafts');
+    const protection = useOperationsFormProtection(() => form);
+    const save = () => {
+        if (!protection.beginSubmit()) {
+            return;
+        }
+
+        const options = {
+            onSuccess: () => protection.saved(() => setEditing(false)),
+            onFinish: protection.finishSubmit,
+        };
+
+        if (entry) {
+            form.patch(`/accounting/drafts/${entry.id}`, options);
+        } else {
+            form.post('/accounting/drafts', options);
+        }
+    };
 
     return (
         <>
             <Head title={entry?.number ?? 'Nuevo asiento'} />
+            {protection.confirmation}
             <PageShell mode="full" className="accounting-workspace">
                 <PageHeader
                     title={entry?.number ?? 'Nuevo asiento'}
@@ -114,7 +137,7 @@ export default function JournalEntry({
                     actions={
                         <>
                             <Button asChild variant="outline">
-                                <Link href="/accounting?area=entries">
+                                <Link href={returnTo}>
                                     <ArrowLeft />
                                     Volver a asientos
                                 </Link>
@@ -122,7 +145,13 @@ export default function JournalEntry({
                             {entry?.status === 'draft' && canManage && (
                                 <Button
                                     variant="outline"
-                                    onClick={() => setEditing(!editing)}
+                                    onClick={() =>
+                                        editing
+                                            ? protection.requestClose(() =>
+                                                  setEditing(false),
+                                              )
+                                            : setEditing(true)
+                                    }
                                 >
                                     Editar borrador
                                 </Button>
@@ -429,9 +458,12 @@ export default function JournalEntry({
                                 >
                                     {({ errors, processing }) => (
                                         <>
-                                            <Button disabled={processing}>
+                                            <ConfirmSubmit
+                                                disabled={processing}
+                                                description="El asiento se contabilizará y afectará a los saldos."
+                                            >
                                                 Validar y contabilizar
-                                            </Button>
+                                            </ConfirmSubmit>
                                             {Object.values(errors).map(
                                                 (e, i) => (
                                                     <p key={i} role="alert">
@@ -519,12 +551,13 @@ export default function JournalEntry({
                                                         maxLength={255}
                                                     />
                                                 </label>
-                                                <Button
+                                                <ConfirmSubmit
                                                     variant="outline"
                                                     disabled={processing}
+                                                    description="Se registrará una reversión del asiento original."
                                                 >
                                                     Registrar reversión
-                                                </Button>
+                                                </ConfirmSubmit>
                                                 {Object.values(errors).map(
                                                     (e, i) => (
                                                         <p role="alert" key={i}>
@@ -545,29 +578,44 @@ export default function JournalEntry({
 }
 function LinesTable({ lines }: { lines: Line[] }) {
     return (
-        <div className="accounting-table accounting-always-table">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Cuenta</th>
-                        <th>Descripción</th>
-                        <th>Debe</th>
-                        <th>Haber</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {lines.map((l) => (
-                        <tr key={l.id}>
-                            <td>
-                                {l.code} · {l.name}
-                            </td>
-                            <td>{l.description ?? '—'}</td>
-                            <td>{money(l.debit)}</td>
-                            <td>{money(l.credit)}</td>
+        <>
+            <div className="accounting-table accounting-convertible">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Cuenta</th>
+                            <th>Descripción</th>
+                            <th>Debe</th>
+                            <th>Haber</th>
                         </tr>
-                    ))}
-                </tbody>
-            </table>
-        </div>
+                    </thead>
+                    <tbody>
+                        {lines.map((l) => (
+                            <tr key={l.id}>
+                                <td>
+                                    {l.code} · {l.name}
+                                </td>
+                                <td>{l.description ?? '—'}</td>
+                                <td>{money(l.debit)}</td>
+                                <td>{money(l.credit)}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+            <div className="accounting-mobile-list">
+                {lines.map((l) => (
+                    <article className="accounting-mobile-row" key={l.id}>
+                        <strong>
+                            {l.code} · {l.name}
+                        </strong>
+                        <span>{l.description ?? '—'}</span>
+                        <span>
+                            Debe: {money(l.debit)} · Haber: {money(l.credit)}
+                        </span>
+                    </article>
+                ))}
+            </div>
+        </>
     );
 }

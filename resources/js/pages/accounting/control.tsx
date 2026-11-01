@@ -1,3 +1,4 @@
+import '@/../css/accounting-mobile07.css';
 import { Form, Head, Link, useForm } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import { AccountInput, roleNames } from '@/components/accounting/account-input';
@@ -6,6 +7,7 @@ import { PageHeader, PageShell } from '@/components/page-shell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { useOperationsFormProtection } from '@/hooks/use-operations-form-protection';
 
 type Account = { id: number; code: string; name: string; type: string };
 type Rule = {
@@ -70,6 +72,7 @@ export default function AccountingControl(p: Props) {
         reason: '',
         confirmed: false,
     });
+    const protection = useOperationsFormProtection(() => form);
     const [kind, setKind] = useState(p.selectedEntity.entity ?? 'customer');
     const [search, setSearch] = useState('');
     const [entities, setEntities] = useState<{
@@ -124,7 +127,8 @@ export default function AccountingControl(p: Props) {
     return (
         <>
             <Head title="Configuración contable" />
-            <PageShell mode="full">
+            {protection.confirmation}
+            <PageShell mode="full" className="accounting-mobile07">
                 <PageHeader
                     title="Control y configuración contable"
                     description="Las decisiones se aplican a operaciones futuras. El histórico solo se corrige mediante acciones expresas."
@@ -253,8 +257,18 @@ export default function AccountingControl(p: Props) {
                     className="space-y-5"
                     onSubmit={(e) => {
                         e.preventDefault();
+
+                        if (!protection.beginSubmit()) {
+return;
+}
+
                         form.patch('/accounting/control', {
                             preserveScroll: true,
+                            onSuccess: () => {
+                                form.setDefaults();
+                                protection.saved();
+                            },
+                            onFinish: protection.finishSubmit,
                         });
                     }}
                 >

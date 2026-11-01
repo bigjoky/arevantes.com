@@ -1,3 +1,4 @@
+import '@/../css/accounting-mobile07.css';
 import { Form, Head, Link, usePage } from '@inertiajs/react';
 import {
     ArrowLeft,
@@ -78,7 +79,7 @@ export default function Templates({
     return (
         <>
             <Head title={recurring ? 'Periódicos' : 'Accounting templates'} />
-            <PageShell mode="full">
+            <PageShell mode="full" className="accounting-mobile07">
                 <PageHeader
                     title={<>{recurring ? 'Periódicos' : 'Entry templates'}</>}
                     description={
@@ -307,7 +308,7 @@ function RecurringHistory({ runs }: { runs: RecurringRun[] }) {
                     to its journal entries.
                 </p>
             </div>
-            <table className="w-full min-w-[48rem] text-sm">
+            <table className="hidden w-full min-w-[48rem] text-sm lg:table">
                 <thead>
                     <tr className="border-b text-left text-muted-foreground">
                         <th className="py-2">Scheduled</th>
@@ -353,6 +354,42 @@ function RecurringHistory({ runs }: { runs: RecurringRun[] }) {
                     ))}
                 </tbody>
             </table>
+            <div className="grid gap-3 lg:hidden">
+                {runs.map((run) => (
+                    <article
+                        key={run.id}
+                        className="grid gap-2 rounded-lg border p-4 text-sm"
+                    >
+                        <strong>
+                            {run.template.name} · {shortDate(run.scheduled_on)}
+                        </strong>
+                        <span>Amount: {money(Number(run.amount))}</span>
+                        <span>
+                            Journal entry: {run.journal_entry?.number ?? '—'}
+                        </span>
+                        <span>
+                            Reversal:{' '}
+                            {run.reversal_entry?.number ??
+                                (run.reversal_due_on
+                                    ? `Due ${shortDate(run.reversal_due_on)}`
+                                    : '—')}
+                        </span>
+                        <Badge
+                            variant={
+                                run.status.includes('failed')
+                                    ? 'destructive'
+                                    : 'outline'
+                            }
+                            title={run.failure_message ?? undefined}
+                        >
+                            {run.status.replace('_', ' ')}
+                        </Badge>
+                        {run.failure_message && (
+                            <span role="alert">{run.failure_message}</span>
+                        )}
+                    </article>
+                ))}
+            </div>
             {runs.length === 0 && (
                 <p className="border-b py-8 text-center text-sm text-muted-foreground">
                     No recurring entries have been processed yet.

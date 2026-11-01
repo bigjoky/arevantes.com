@@ -1,14 +1,17 @@
-import { Form, Head, Link } from '@inertiajs/react';
+import '@/../css/accounting-mobile07.css';
+import { Form as SearchForm, Head, Link } from '@inertiajs/react';
 import { ArrowLeft, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { PageHeader, PageShell } from '@/components/page-shell';
 import { PaginationBar, TableViewport } from '@/components/page-shell';
 import type { PaginationLink } from '@/components/page-shell';
+import ProjectDialog, {
+    ProjectDialogContent,
+} from '@/components/projects/protected-dialog';
+import Form from '@/components/projects/protected-form';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
-    Dialog,
-    DialogContent,
     DialogHeader,
     DialogTitle,
     DialogTrigger,
@@ -22,6 +25,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import ConfirmSubmit from '@/pages/human-resources/confirm-submit';
 import { accountTypes } from './workspace';
 
 type Account = {
@@ -59,7 +63,7 @@ export default function Accounts({
     return (
         <>
             <Head title="Chart of accounts" />
-            <PageShell mode="master-detail">
+            <PageShell mode="master-detail" className="accounting-mobile07">
                 <PageHeader
                     title={<>Chart of accounts</>}
                     description={
@@ -76,7 +80,7 @@ export default function Accounts({
                         </>
                     }
                 />
-                <Form
+                <SearchForm
                     action="/accounting/accounts"
                     method="get"
                     className="flex max-w-xl gap-2"
@@ -90,8 +94,8 @@ export default function Accounts({
                     <Button variant="outline">
                         <Search /> Search
                     </Button>
-                </Form>
-                <TableViewport>
+                </SearchForm>
+                <TableViewport className="hidden lg:block">
                     <table className="w-full min-w-[60rem] text-sm">
                         <thead>
                             <tr className="border-b text-left text-muted-foreground">
@@ -157,13 +161,13 @@ export default function Accounts({
                                                     action={`/accounting/accounts/${account.id}`}
                                                     method="delete"
                                                 >
-                                                    <Button
+                                                    <ConfirmSubmit
                                                         size="icon"
                                                         variant="ghost"
                                                         aria-label="Delete account"
                                                     >
                                                         <Trash2 />
-                                                    </Button>
+                                                    </ConfirmSubmit>
                                                 </Form>
                                             </div>
                                         )}
@@ -173,6 +177,63 @@ export default function Accounts({
                         </tbody>
                     </table>
                 </TableViewport>
+                <div className="grid gap-3 lg:hidden">
+                    {accounts.data.map((account) => (
+                        <article
+                            key={account.id}
+                            className="grid min-w-0 gap-2 rounded-lg border p-4 text-sm"
+                        >
+                            <Link
+                                href={`/accounting/accounts/${account.id}`}
+                                className="min-h-11 font-semibold"
+                            >
+                                {account.code} · {account.name}
+                            </Link>
+                            <span>
+                                {accountTypes[
+                                    account.effective_type ?? account.type
+                                ] ?? account.type}{' '}
+                                · {account.parent_code || '—'}
+                            </span>
+                            <span>
+                                {account.lines_count ?? 0} apuntes registrados
+                            </span>
+                            <span>
+                                {account.is_active
+                                    ? account.is_postable
+                                        ? 'Imputable'
+                                        : 'Grupo'
+                                    : 'Inactiva'}{' '}
+                                ·{' '}
+                                {account.source === 'pgc'
+                                    ? 'PGC'
+                                    : account.source === 'customized'
+                                      ? 'PGC · personalizada'
+                                      : 'Empresa'}
+                            </span>
+                            {admin && (
+                                <div className="flex gap-2">
+                                    <AccountDialog
+                                        account={account}
+                                        parents={parents}
+                                    />
+                                    <Form
+                                        action={`/accounting/accounts/${account.id}`}
+                                        method="delete"
+                                    >
+                                        <ConfirmSubmit
+                                            size="icon"
+                                            variant="ghost"
+                                            aria-label="Delete account"
+                                        >
+                                            <Trash2 />
+                                        </ConfirmSubmit>
+                                    </Form>
+                                </div>
+                            )}
+                        </article>
+                    ))}
+                </div>
                 <PaginationBar
                     links={accounts.links}
                     total={accounts.total}
@@ -193,7 +254,7 @@ function AccountDialog({
     const [open, setOpen] = useState(false);
 
     return (
-        <Dialog open={open} onOpenChange={setOpen}>
+        <ProjectDialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
                 <Button
                     size={account ? 'icon' : 'default'}
@@ -209,7 +270,7 @@ function AccountDialog({
                     )}
                 </Button>
             </DialogTrigger>
-            <DialogContent>
+            <ProjectDialogContent>
                 <DialogHeader>
                     <DialogTitle>
                         {account
@@ -231,6 +292,7 @@ function AccountDialog({
                         <Field label="Code">
                             <Input
                                 name="code"
+                                aria-label="Code"
                                 inputMode="numeric"
                                 pattern="[0-9]{3,20}"
                                 required
@@ -240,17 +302,18 @@ function AccountDialog({
                     <Field label="Name">
                         <Input
                             name="name"
+                            aria-label="Name"
                             defaultValue={account?.name}
                             required
                         />
                     </Field>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                         <Field label="Type">
                             <Select
                                 name="type"
                                 defaultValue={account?.type || 'expense'}
                             >
-                                <SelectTrigger>
+                                <SelectTrigger aria-label="Type">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -271,7 +334,7 @@ function AccountDialog({
                                 name="parent_code"
                                 defaultValue={account?.parent_code || 'none'}
                             >
-                                <SelectTrigger>
+                                <SelectTrigger aria-label="Parent">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -292,7 +355,7 @@ function AccountDialog({
                             </Select>
                         </Field>
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                         <Field label="Allows entries">
                             <Select
                                 name="is_postable"
@@ -300,7 +363,7 @@ function AccountDialog({
                                     account?.is_postable === false ? '0' : '1'
                                 }
                             >
-                                <SelectTrigger>
+                                <SelectTrigger aria-label="Allows entries">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -318,7 +381,7 @@ function AccountDialog({
                                     account?.is_active === false ? '0' : '1'
                                 }
                             >
-                                <SelectTrigger>
+                                <SelectTrigger aria-label="Active">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -332,8 +395,8 @@ function AccountDialog({
                         {account ? 'Save changes' : 'Create account'}
                     </Button>
                 </Form>
-            </DialogContent>
-        </Dialog>
+            </ProjectDialogContent>
+        </ProjectDialog>
     );
 }
 function Field({
