@@ -12,6 +12,7 @@ use App\Models\Person;
 use App\Models\User;
 use App\Models\WorkOrder;
 use App\Services\Work\VehicleAvailability;
+use App\Services\Work\WorkOrderPlanningReadiness;
 use App\Services\Work\WorkOrderRescheduler;
 use App\Services\Work\WorkOrderStateManager;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -42,7 +43,7 @@ class OperationalResourcesTest extends TestCase
         $admin = User::factory()->create(['role' => 'admin']);
         $vehicle = $this->vehicle($admin);
         $order = $this->order(null, ['vehicle_required' => true]);
-        $readiness = app(\App\Services\Work\WorkOrderPlanningReadiness::class);
+        $readiness = app(WorkOrderPlanningReadiness::class);
         $this->assertFalse($readiness->for($order)['vehicle_ready']);
         $this->assertSame('warning', $readiness->for($order)['status']);
         $vehicle->update(['status' => 'maintenance']);
