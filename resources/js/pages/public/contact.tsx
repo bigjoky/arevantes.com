@@ -29,9 +29,9 @@ export default function Contact({
                     </p>
                     <a
                         className="av-text-link"
-                        href="mailto:contact@arevantes.com"
+                        href="mailto:info@arevantes.com"
                     >
-                        contact@arevantes.com ↗
+                        info@arevantes.com ↗
                     </a>
                     <p>Baena · Córdoba · Andalucía</p>
                     <p>
@@ -53,6 +53,14 @@ export default function Contact({
                             </div>
                         ) : (
                             <div className="av-form">
+                                {errors.submission && (
+                                    <p
+                                        className="av-error av-wide"
+                                        role="alert"
+                                    >
+                                        {errors.submission}
+                                    </p>
+                                )}
                                 {[
                                     {
                                         name: 'name',

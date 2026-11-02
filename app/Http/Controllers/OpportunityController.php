@@ -219,7 +219,7 @@ class OpportunityController extends Controller
         ]);
     }
 
-    public function show(Opportunity $opportunity, OpportunityDossier $dossier, OpportunitySalesCycle $salesCycle): Response
+    public function show(Opportunity $opportunity, OpportunityDossier $dossier, OpportunitySalesCycle $salesCycle, LeadResponseSla $responseSla): Response
     {
         if ($opportunity->trashed()) {
             return Inertia::render('opportunities/archived', [
@@ -260,6 +260,7 @@ class OpportunityController extends Controller
                 'renewal_due_on' => $opportunity->renewal_due_on?->toDateString(),
                 'available_stages' => $salesCycle->availableTransitions($opportunity),
                 'score_breakdown' => $salesCycle->scoreBreakdown($opportunity),
+                'response_sla_status' => $responseSla->status($opportunity),
             ],
             'timeline' => $timeline,
             'journey' => app(ProjectJourney::class)->for(request()->user(), opportunity: $opportunity),

@@ -168,6 +168,7 @@ class ProjectJourneyWorkflowTest extends TestCase
 
     public function test_web_capture_accepts_phone_without_email_and_requires_a_contact_channel(): void
     {
+        User::factory()->create(['role' => 'commercial']);
         $data = ['name' => 'Contacto sin email', 'phone' => '600000321', 'service' => 'solar', 'message' => 'Quiero información para una instalación solar.', 'privacy' => '1'];
         $this->post(route('website.contact'), $data)->assertRedirect()->assertSessionHasNoErrors();
         $this->assertDatabaseCount('opportunities', 1);

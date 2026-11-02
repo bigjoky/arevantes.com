@@ -75,6 +75,9 @@ type Opportunity = {
     notes: string | null;
     created_at: string;
     updated_at: string;
+    first_response_due_at: string | null;
+    first_responded_at: string | null;
+    response_sla_status: 'pending' | 'met' | 'breached' | 'not_applicable';
     customer: {
         id: number;
         first_name: string;
@@ -182,7 +185,12 @@ export default function OpportunityShow({
                             size="sm"
                             className="-ml-3"
                         >
-                            <Link href={commercialListUrl(usePageUrl,'/opportunities')}>
+                            <Link
+                                href={commercialListUrl(
+                                    usePageUrl,
+                                    '/opportunities',
+                                )}
+                            >
                                 <ArrowLeft /> Oportunidades
                             </Link>
                         </Button>
@@ -341,6 +349,50 @@ export default function OpportunityShow({
                     </div>
 
                     <aside className="space-y-6">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Primera respuesta</CardTitle>
+                            </CardHeader>
+                            <CardContent className="grid gap-4 text-sm">
+                                <Detail
+                                    label="Estado"
+                                    value={
+                                        {
+                                            pending: 'Pendiente',
+                                            met: 'Dentro de plazo',
+                                            breached: 'Vencido',
+                                            not_applicable: 'No aplicable',
+                                        }[opportunity.response_sla_status]
+                                    }
+                                />
+                                <Detail
+                                    label="Fecha límite"
+                                    value={
+                                        opportunity.first_response_due_at
+                                            ? dateTime(
+                                                  opportunity.first_response_due_at,
+                                              )
+                                            : 'Sin plazo'
+                                    }
+                                />
+                                <Detail
+                                    label="Responsable"
+                                    value={
+                                        opportunity.owner?.name || 'Sin asignar'
+                                    }
+                                />
+                                <Detail
+                                    label="Primera respuesta registrada"
+                                    value={
+                                        opportunity.first_responded_at
+                                            ? dateTime(
+                                                  opportunity.first_responded_at,
+                                              )
+                                            : 'Sin registrar'
+                                    }
+                                />
+                            </CardContent>
+                        </Card>
                         <Card>
                             <CardHeader>
                                 <CardTitle>Contexto comercial</CardTitle>

@@ -4,10 +4,9 @@ namespace App\Notifications;
 
 use App\Models\Opportunity;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 use Illuminate\Notifications\Notification;
 
-class WebsiteLeadNotification extends Notification implements ShouldQueueAfterCommit
+class WebsiteLeadNotification extends Notification
 {
     use Queueable;
 
@@ -24,7 +23,7 @@ class WebsiteLeadNotification extends Notification implements ShouldQueueAfterCo
             'category' => 'commercial',
             'opportunity_id' => $this->opportunity->id,
             'message' => 'Nueva solicitud recibida desde arevantes.com: '.$this->opportunity->title,
-            'url' => route('opportunities.index'),
+            'url' => route('opportunities.show', $this->opportunity->id),
         ];
     }
 }

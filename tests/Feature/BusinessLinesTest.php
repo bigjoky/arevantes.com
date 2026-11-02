@@ -81,6 +81,7 @@ class BusinessLinesTest extends TestCase
     public function test_the_public_website_accepts_electrical_and_security_leads(): void
     {
         Notification::fake();
+        User::factory()->create(['role' => 'commercial']);
 
         foreach ([
             ['electrical', 'Instalaciones eléctricas'],

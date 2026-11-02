@@ -47,6 +47,11 @@ export function UserMenuContent({ user }: Props) {
                 </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+                <Link href="/notifications" onClick={cleanup}>
+                    Historial de notificaciones
+                </Link>
+            </DropdownMenuItem>
             {notifications.length ? (
                 <>
                     <DropdownMenuGroup>
@@ -87,6 +92,13 @@ export function UserMenuContent({ user }: Props) {
                     <DropdownMenuSeparator />
                 </>
             ) : null}
+            {user.role === 'admin' && (
+                <DropdownMenuItem asChild>
+                    <Link href="/contact-incidents" onClick={cleanup}>
+                        Incidencias de contacto web
+                    </Link>
+                </DropdownMenuItem>
+            )}
             {user.role === 'admin' ? (
                 <>
                     <DropdownMenuGroup>

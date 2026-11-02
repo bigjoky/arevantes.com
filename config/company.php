@@ -8,6 +8,6 @@ return [
     'city' => env('COMPANY_CITY'),
     'province' => env('COMPANY_PROVINCE'),
     'country' => env('COMPANY_COUNTRY', 'Spain'),
-    'email' => env('COMPANY_EMAIL', 'contact@arevantes.com'),
+    'email' => env('COMPANY_EMAIL', 'info@arevantes.com'),
     'phone' => env('COMPANY_PHONE'),
 ];

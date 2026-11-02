@@ -140,7 +140,7 @@ export default function PublicPage({
                             </p>
                             <a
                                 className="av-button"
-                                href="mailto:contact@arevantes.com?subject=Consulta%20sobre%20redes%20y%20sistemas"
+                                href="mailto:info@arevantes.com?subject=Consulta%20sobre%20redes%20y%20sistemas"
                             >
                                 Consultar por correo{' '}
                                 <span aria-hidden="true">→</span>

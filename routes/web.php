@@ -68,6 +68,7 @@ use App\Http\Controllers\MaintenancePlanMaterialController;
 use App\Http\Controllers\MaterialRequirementController;
 use App\Http\Controllers\MaterialTransportController;
 use App\Http\Controllers\MyHumanResourcesController;
+use App\Http\Controllers\NotificationHistoryController;
 use App\Http\Controllers\OperationalVehicleController;
 use App\Http\Controllers\OperationsController;
 use App\Http\Controllers\OperationsWorkspaceController;
@@ -117,6 +118,7 @@ use App\Http\Controllers\SupplyControlTowerController;
 use App\Http\Controllers\SupplyWorkspaceController;
 use App\Http\Controllers\TaxController;
 use App\Http\Controllers\WebsiteContactController;
+use App\Http\Controllers\WebsiteContactIncidentsController;
 use App\Http\Controllers\WebVitalController;
 use App\Http\Controllers\WorkOrderController;
 use App\Http\Controllers\WorkOrderMaterialsController;
@@ -213,6 +215,10 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('analytics/subscriptions/{analyticsReportSubscription}', [AnalyticsController::class, 'destroySubscription'])->middleware('can:view-analytics')->name('analytics.subscriptions.destroy');
     Route::get('search', GlobalSearchController::class)->middleware('throttle:60,1')->name('global-search');
     Route::get('action-center', ActionCenterController::class)->middleware('throttle:60,1')->name('action-center');
+    Route::get('notifications', [NotificationHistoryController::class, 'index'])->name('notifications.index');
+    Route::get('contact-incidents', [WebsiteContactIncidentsController::class, 'index'])->middleware('can:manage-admin')->name('contact-incidents.index');
+    Route::post('contact-incidents/{receipt}/retry', [WebsiteContactIncidentsController::class, 'retry'])->middleware('can:manage-admin')->name('contact-incidents.retry');
+    Route::post('notifications/{notification}/read', [NotificationHistoryController::class, 'read'])->name('notifications.item.read');
     Route::post('notifications/read', function (Request $request) {
         $request->user()->unreadNotifications->markAsRead();
 

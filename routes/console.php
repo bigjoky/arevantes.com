@@ -4,6 +4,8 @@ use App\Models\Expense;
 use App\Models\MonitoringReading;
 use App\Models\PurchaseDocument;
 use App\Models\SalesDocument;
+use App\Models\WebsiteContactMail;
+use App\Models\WebsiteContactReceipt;
 use App\Models\WebVitalSample;
 use App\Services\Accounting\AccountingHealthReport;
 use App\Services\Accounting\AccountingSynchronizer;
@@ -11,6 +13,7 @@ use App\Services\Accounting\RecurringEntryProcessor;
 use App\Services\Accounting\SupplierMasterRecovery;
 use App\Services\AfterSales\ServiceWorkGenerator;
 use App\Services\AfterSales\SlaManager;
+use App\Services\Website\WebsiteContactOutbox;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -135,3 +138,65 @@ if (config('automation.scheduler_profile') === 'approved_full') {
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
+
+Artisan::command('website-contact:prune {--apply}', function () {
+    $expired = WebsiteContactReceipt::query()->where('expires_at', '<=', now())->whereNotNull('processed_at')->whereDoesntHave('mailItems', fn ($query) => $query->whereNotIn('status', ['sent', 'cancelled']));
+    $pending = WebsiteContactReceipt::query()->where('expires_at', '<=', now())->whereNull('processed_at')->count();
+    $total = (clone $expired)->count();
+    $this->warn("Registros vencidos: {$total}; pendientes de procesamiento: {$pending}.");
+    if (! $this->option('apply')) {
+        $this->line('Vista previa: no se ha eliminado ningún registro.');
+
+        return;
+    }
+    $expired->delete();
+    $this->info('Registros vencidos eliminados.');
+})->purpose('Revisar o eliminar recepciones web vencidas');
+
+Artisan::command('website-contact:mail {id?} {--send} {--operator=}', function (WebsiteContactOutbox $outbox) {
+    if (! $this->option('send')) {
+        WebsiteContactMail::query()->whereIn('status', ['pending', 'sending', 'uncertain'])->orderBy('id')->limit(100)->get(['id', 'kind', 'status', 'attempts', 'attempted_at', 'error_class'])->each(fn ($item) => $this->line(json_encode($item->toArray())));
+
+        return;
+    }
+    if (! $this->argument('id') || ! $this->option('operator')) {
+        $this->error('Indica el ID y el operador con --operator.');
+
+        return 1;
+    }
+    $result = $outbox->send((int) $this->argument('id'));
+    Log::info('Operación manual de correo web.', ['mail_id' => (int) $this->argument('id'), 'operator' => $this->option('operator'), 'result' => $result]);
+    $this->line($result);
+
+    return $result === 'sent' ? 0 : 1;
+})->purpose('Consultar o enviar manualmente un correo web pendiente');
+
+Artisan::command('website-contact:mail-resolve {id} {decision} {--operator=} {--reason=}', function () {
+    $decision = $this->argument('decision');
+    $operator = $this->option('operator');
+    $reason = $this->option('reason');
+    if (! in_array($decision, ['sent', 'retry', 'cancel'], true) || ! $operator || ! $reason || strlen($reason) > 250) {
+        $this->error('Indica sent, retry o cancel, un operador y el motivo de la resolución.');
+
+        return 1;
+    }
+    $item = \DB::transaction(function () use ($decision) {
+        $item = WebsiteContactMail::query()->lockForUpdate()->findOrFail($this->argument('id'));
+        if (! in_array($item->status, ['uncertain', 'sending'], true)
+            || ($item->status === 'sending' && (! $item->attempted_at || $item->attempted_at->gt(now()->subMinutes(5))))) {
+            return null;
+        }
+        $item->update(['status' => match ($decision) {
+            'sent' => 'sent', 'retry' => 'pending', default => 'cancelled'
+        }, 'sent_at' => $decision === 'sent' ? now() : null]);
+
+        return $item;
+    });
+    if (! $item) {
+        $this->error('Solo se pueden resolver envíos inciertos o interrumpidos durante al menos cinco minutos.');
+
+        return 1;
+    }
+    Log::warning('Resolución manual de correo web.', ['mail_id' => $item->id, 'operator' => $operator, 'decision' => $decision, 'reason' => $reason]);
+    $this->line('Resolución registrada.');
+})->purpose('Resolver manualmente el estado incierto de un correo web');

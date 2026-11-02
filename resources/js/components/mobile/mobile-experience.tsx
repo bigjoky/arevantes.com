@@ -115,7 +115,11 @@ function focusShellOpener(opener: HTMLElement | null) {
         return;
     }
 
-    document.querySelector<HTMLElement>('.mobile-tabbar button, [data-slot="sidebar-trigger"]')?.focus();
+    document
+        .querySelector<HTMLElement>(
+            '.mobile-tabbar button, [data-slot="sidebar-trigger"]',
+        )
+        ?.focus();
 }
 
 export function MobileExperience({
@@ -265,7 +269,6 @@ export function MobileExperience({
         }
     }, [taskGuard, finishTaskClose]);
     useEffect(() => {
-
         const pop = () => {
             traversing.current = true;
         };
@@ -838,9 +841,9 @@ function MobileNotifications() {
     return (
         <div className="mobile-notifications">
             <p className="mobile-capability-note">
-                Últimos avisos no leídos de tu cuenta. El historial completo y
-                las prioridades están pendientes de integración.
+                Últimos avisos no leídos de tu cuenta.
             </p>
+            <Link href="/notifications">Ver historial de notificaciones</Link>
             {auth.notifications.length ? (
                 <>
                     <Button
