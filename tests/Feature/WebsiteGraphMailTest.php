@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use phpseclib3\Crypt\PublicKeyLoader;
 use phpseclib3\Crypt\RSA;
+use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
 class WebsiteGraphMailTest extends TestCase
@@ -42,7 +43,7 @@ class WebsiteGraphMailTest extends TestCase
         config(['contact-mail.enabled' => true, 'contact-mail.transport' => 'graph', 'contact-mail.from' => 'info@arevantes.com', 'contact-mail.reply_to' => 'info@arevantes.com',
             'contact-mail.graph.tenant_id' => '7c831860-91be-46c8-9e16-afea4d7b12fa', 'contact-mail.graph.client_id' => '7dbadeb2-e9ec-49dc-ae83-68a9563c236d',
             'contact-mail.graph.certificate_path' => $this->certPath, 'contact-mail.graph.private_key_path' => $this->keyPath,
-            'contact-mail.graph.private_key_passphrase' => 'test-passphrase', 'contact-mail.graph.sha1_thumbprint' => '']);
+            'contact-mail.graph.private_key_passphrase' => 'test-passphrase', 'contact-mail.graph.sha1_thumbprint' => openssl_x509_fingerprint($cert, 'sha1')]);
         Cache::flush();
     }
 
@@ -111,6 +112,61 @@ class WebsiteGraphMailTest extends TestCase
             putenv('MS_GRAPH_CERTIFICATE_PEM_B64');
             putenv('MS_GRAPH_PRIVATE_KEY_PEM_B64');
             putenv('MS_GRAPH_PRIVATE_KEY_PASSPHRASE');
+        }
+    }
+
+    public function test_missing_or_malformed_fingerprint_rejects_authentication(): void
+    {
+        $item = $this->item();
+        Http::fake();
+        foreach ([null, '', '1234'] as $fingerprint) {
+            $item->refresh()->update(['status' => 'pending']);
+            config(['contact-mail.graph.sha1_thumbprint' => $fingerprint]);
+            $this->assertSame('uncertain', app(WebsiteContactOutbox::class)->send($item->id));
+            $this->assertSame('certificate_fingerprint_required', $item->fresh()->error_class);
+        }
+        Http::assertNothingSent();
+    }
+
+    public function test_cloud_style_secrets_work_with_cached_configuration(): void
+    {
+        $cacheFile = tempnam(sys_get_temp_dir(), 'contact-config-');
+        unlink($cacheFile);
+        $scriptFile = tempnam(sys_get_temp_dir(), 'contact-script-');
+        $environment = [
+            'APP_ENV' => 'production', 'APP_KEY' => 'base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
+            'APP_CONFIG_CACHE' => $cacheFile, 'CACHE_STORE' => 'array',
+            'MS_GRAPH_TENANT_ID' => '7c831860-91be-46c8-9e16-afea4d7b12fa',
+            'MS_GRAPH_CLIENT_ID' => '7dbadeb2-e9ec-49dc-ae83-68a9563c236d',
+            'MS_GRAPH_CERTIFICATE_SHA1' => openssl_x509_fingerprint(file_get_contents($this->certPath), 'sha1'),
+            'MS_GRAPH_CERTIFICATE_PEM_B64' => base64_encode(file_get_contents($this->certPath)),
+            'MS_GRAPH_PRIVATE_KEY_PEM_B64' => base64_encode(file_get_contents($this->keyPath)),
+            'MS_GRAPH_PRIVATE_KEY_PASSPHRASE' => 'test-passphrase',
+        ];
+        file_put_contents($scriptFile, <<<'PHP'
+<?php
+require getcwd().'/vendor/autoload.php';
+$app = require getcwd().'/bootstrap/app.php';
+$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+if (! $app->configurationIsCached()) { exit(2); }
+Illuminate\Support\Facades\Http::fake(['login.microsoftonline.com/*' => Illuminate\Support\Facades\Http::response(['access_token' => 'simulated', 'expires_in' => 3600])]);
+if (app(App\Services\Website\Graph\GraphAuthentication::class)->token() !== 'simulated') { exit(3); }
+echo 'ok';
+PHP);
+        try {
+            $cache = new Process([PHP_BINARY, 'artisan', 'config:cache'], base_path(), $environment);
+            $cache->run();
+            $this->assertTrue($cache->isSuccessful(), 'No se pudo generar la caché de configuración aislada.');
+            $cached = file_get_contents($cacheFile);
+            $this->assertStringNotContainsString($environment['MS_GRAPH_PRIVATE_KEY_PEM_B64'], $cached);
+            $this->assertStringNotContainsString($environment['MS_GRAPH_PRIVATE_KEY_PASSPHRASE'], $cached);
+            $process = new Process([PHP_BINARY, $scriptFile], base_path(), $environment);
+            $process->run();
+            $this->assertTrue($process->isSuccessful(), 'No se pudieron leer los secretos simulados con configuración cacheada.');
+            $this->assertSame('ok', $process->getOutput());
+        } finally {
+            @unlink($cacheFile);
+            @unlink($scriptFile);
         }
     }
 

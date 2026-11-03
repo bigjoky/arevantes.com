@@ -10,8 +10,8 @@ return new class extends Migration
     {
         Schema::create('website_contact_mail', function (Blueprint $table): void {
             $table->id();
-            $table->foreignId('receipt_id')->constrained('website_contact_receipts')->cascadeOnDelete();
-            $table->foreignId('opportunity_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('receipt_id')->constrained('website_contact_receipts')->restrictOnDelete();
+            $table->foreignId('opportunity_id')->constrained()->restrictOnDelete();
             $table->string('kind', 20);
             $table->string('recipient_hash', 64);
             $table->text('recipient');

@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\WebsiteContactMail;
 use App\Models\WebsiteContactReceipt;
 use App\Services\Website\WebsiteContactOutbox;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Mail\PendingMail;
 use Illuminate\Support\Facades\Mail;
@@ -82,6 +83,42 @@ class WebsiteContactMailTest extends TestCase
         WebsiteContactMail::where('receipt_id', $receipt->id)->update(['status' => 'sent']);
         $this->artisan('website-contact:prune --apply')->assertSuccessful();
         $this->assertDatabaseMissing('website_contact_receipts', ['id' => $receipt->id]);
+        $this->assertDatabaseHas('audit_logs', ['event' => 'contact_retention_prune', 'auditable_id' => $receipt->id]);
+    }
+
+    public function test_parent_records_cannot_be_deleted_while_mail_history_exists(): void
+    {
+        User::factory()->create(['role' => 'admin']);
+        $this->post(route('website.contact'), $this->payload());
+        $item = WebsiteContactMail::firstOrFail();
+        foreach (['pending', 'sending', 'uncertain', 'sent', 'cancelled'] as $state) {
+            $item->refresh()->update(['status' => $state]);
+            foreach ([['website_contact_receipts', $item->receipt_id], ['opportunities', $item->opportunity_id]] as [$table, $id]) {
+                try {
+                    \DB::transaction(fn () => \DB::table($table)->where('id', $id)->delete());
+                    $this->fail("La eliminación de {$table} debería quedar bloqueada para {$state}.");
+                } catch (QueryException $exception) {
+                    $this->assertDatabaseHas($table, ['id' => $id]);
+                    $this->assertDatabaseHas('website_contact_mail', ['id' => $item->id, 'status' => $state]);
+                }
+            }
+        }
+    }
+
+    public function test_retention_preserves_uncertain_mail_and_recovery_remains_possible(): void
+    {
+        User::factory()->create(['role' => 'admin']);
+        $this->post(route('website.contact'), $this->payload());
+        $item = WebsiteContactMail::firstOrFail();
+        $receipt = WebsiteContactReceipt::findOrFail($item->receipt_id);
+        $receipt->update(['expires_at' => now()->subDay()]);
+        $item->update(['status' => 'uncertain']);
+        $this->artisan('website-contact:prune --apply')->assertSuccessful();
+        $this->assertDatabaseHas('website_contact_mail', ['id' => $item->id, 'status' => 'uncertain']);
+        $this->artisan('website-contact:mail-resolve', ['id' => $item->id, 'decision' => 'retry', '--operator' => 'test', '--reason' => 'No aceptado por el proveedor'])->assertSuccessful();
+        $this->assertSame('pending', $item->fresh()->status);
+        $this->artisan('website-contact:prune --apply')->assertSuccessful();
+        $this->assertDatabaseHas('website_contact_receipts', ['id' => $receipt->id]);
     }
 
     public function test_uncertain_delivery_requires_a_recorded_manual_resolution_before_retry(): void

@@ -102,7 +102,10 @@ final class GraphAuthentication
         }
         $fingerprint = strtolower(str_replace(':', '', (string) openssl_x509_fingerprint($parsed, 'sha1')));
         $expected = strtolower(str_replace(':', '', (string) config('contact-mail.graph.sha1_thumbprint')));
-        if ($expected !== '' && ! hash_equals($expected, $fingerprint)) {
+        if (! preg_match('/^[a-f0-9]{40}$/', $expected)) {
+            throw new GraphException('certificate_fingerprint_required');
+        }
+        if (! hash_equals($expected, $fingerprint)) {
             throw new GraphException('certificate_mismatch');
         }
 

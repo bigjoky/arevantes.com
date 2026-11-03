@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\AuditLog;
 use App\Models\Expense;
 use App\Models\MonitoringReading;
 use App\Models\PurchaseDocument;
@@ -149,8 +150,35 @@ Artisan::command('website-contact:prune {--apply}', function () {
 
         return;
     }
-    $expired->delete();
-    $this->info('Registros vencidos eliminados.');
+    $deleted = 0;
+    $expired->select('id')->chunkById(100, function ($receipts) use (&$deleted): void {
+        foreach ($receipts as $entry) {
+            $deleted += \DB::transaction(function () use ($entry): int {
+                $receipt = WebsiteContactReceipt::query()->whereKey($entry->id)->lockForUpdate()->first();
+                if (! $receipt || ! $receipt->processed_at || $receipt->expires_at->isFuture()) {
+                    return 0;
+                }
+                $mail = $receipt->mailItems()->lockForUpdate()->get();
+                if ($mail->contains(fn ($item) => ! in_array($item->status, ['sent', 'cancelled'], true))) {
+                    return 0;
+                }
+                AuditLog::create([
+                    'event' => 'contact_retention_prune',
+                    'auditable_type' => $receipt->getMorphClass(),
+                    'auditable_id' => $receipt->id,
+                    'new_values' => ['mail' => $mail->map(fn ($item) => [
+                        'id' => $item->id, 'kind' => $item->kind, 'status' => $item->status,
+                        'attempts' => $item->attempts, 'sent_at' => $item->sent_at?->toIso8601String(),
+                    ])->all()],
+                ]);
+                $receipt->mailItems()->delete();
+                $receipt->delete();
+
+                return 1;
+            });
+        }
+    });
+    $this->info("Registros vencidos eliminados: {$deleted}.");
 })->purpose('Revisar o eliminar recepciones web vencidas');
 
 Artisan::command('website-contact:mail {id?} {--send} {--operator=}', function (WebsiteContactOutbox $outbox) {
