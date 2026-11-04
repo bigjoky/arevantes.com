@@ -170,6 +170,53 @@ PHP);
         }
     }
 
+    public function test_cloud_dotenv_secrets_are_read_with_cached_configuration(): void
+    {
+        $directory = sys_get_temp_dir().'/contact-cloud-'.bin2hex(random_bytes(8));
+        mkdir($directory, 0700);
+        $cacheFile = $directory.'/config.php';
+        $scriptFile = $directory.'/check.php';
+        $certificate = base64_encode(file_get_contents($this->certPath));
+        $privateKey = base64_encode(file_get_contents($this->keyPath));
+        file_put_contents($directory.'/.env', "MS_GRAPH_CERTIFICATE_PEM_B64={$certificate}\nMS_GRAPH_PRIVATE_KEY_PEM_B64={$privateKey}\nMS_GRAPH_PRIVATE_KEY_PASSPHRASE=\"test-passphrase\"\n");
+        chmod($directory.'/.env', 0600);
+        $environment = [
+            'APP_ENV' => 'production', 'APP_KEY' => 'base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
+            'APP_CONFIG_CACHE' => $cacheFile, 'CACHE_STORE' => 'array',
+            'MS_GRAPH_TENANT_ID' => '7c831860-91be-46c8-9e16-afea4d7b12fa',
+            'MS_GRAPH_CLIENT_ID' => '7dbadeb2-e9ec-49dc-ae83-68a9563c236d',
+            'MS_GRAPH_CERTIFICATE_SHA1' => openssl_x509_fingerprint(file_get_contents($this->certPath), 'sha1'),
+            'MS_GRAPH_CERTIFICATE_PEM_B64' => false, 'MS_GRAPH_PRIVATE_KEY_PEM_B64' => false,
+            'MS_GRAPH_PRIVATE_KEY_PASSPHRASE' => false,
+        ];
+        file_put_contents($scriptFile, <<<'PHP'
+<?php
+require getcwd().'/vendor/autoload.php';
+$app = require getcwd().'/bootstrap/app.php';
+$app->useEnvironmentPath($argv[1]);
+$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+if (! $app->configurationIsCached() || getenv('MS_GRAPH_PRIVATE_KEY_PEM_B64') !== false) { exit(2); }
+Illuminate\Support\Facades\Http::fake(['login.microsoftonline.com/*' => Illuminate\Support\Facades\Http::response(['access_token' => 'simulated', 'expires_in' => 3600])]);
+if (app(App\Services\Website\Graph\GraphAuthentication::class)->token() !== 'simulated') { exit(3); }
+echo 'ok';
+PHP);
+        try {
+            $cache = new Process([PHP_BINARY, 'artisan', 'config:cache'], base_path(), $environment);
+            $cache->run();
+            $this->assertTrue($cache->isSuccessful(), 'No se pudo crear la configuración cacheada aislada.');
+            $this->assertStringNotContainsString($privateKey, file_get_contents($cacheFile));
+            $process = new Process([PHP_BINARY, $scriptFile, $directory], base_path(), $environment);
+            $process->run();
+            $this->assertTrue($process->isSuccessful(), 'No se pudieron leer los secretos simulados desde el entorno protegido.');
+            $this->assertSame('ok', $process->getOutput());
+        } finally {
+            @unlink($directory.'/.env');
+            @unlink($scriptFile);
+            @unlink($cacheFile);
+            @rmdir($directory);
+        }
+    }
+
     public function test_production_rejects_private_key_paths_without_injected_secrets(): void
     {
         $previous = $this->app['env'];

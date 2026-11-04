@@ -6,12 +6,15 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
+use Dotenv\Dotenv;
 use phpseclib3\Crypt\PublicKeyLoader;
 use phpseclib3\Crypt\RSA;
 use Throwable;
 
 final class GraphAuthentication
 {
+    private ?array $runtimeSecrets = null;
+
     public function token(): string
     {
         $tenant = (string) config('contact-mail.graph.tenant_id');
@@ -71,8 +74,8 @@ final class GraphAuthentication
 
     private function credentials(): array
     {
-        $certificateSecret = getenv('MS_GRAPH_CERTIFICATE_PEM_B64');
-        $keySecret = getenv('MS_GRAPH_PRIVATE_KEY_PEM_B64');
+        $certificateSecret = $this->runtimeSecret('MS_GRAPH_CERTIFICATE_PEM_B64');
+        $keySecret = $this->runtimeSecret('MS_GRAPH_PRIVATE_KEY_PEM_B64');
         if ($certificateSecret !== false || $keySecret !== false) {
             if (! is_string($certificateSecret) || ! is_string($keySecret) || strlen($certificateSecret) > 32768 || strlen($keySecret) > 32768) {
                 throw new GraphException('credentials_invalid');
@@ -114,9 +117,39 @@ final class GraphAuthentication
 
     private function passphrase(): string
     {
-        $value = getenv('MS_GRAPH_PRIVATE_KEY_PASSPHRASE');
+        $value = $this->runtimeSecret('MS_GRAPH_PRIVATE_KEY_PASSPHRASE');
 
         return $value !== false ? $value : (string) config('contact-mail.graph.private_key_passphrase');
+    }
+
+    private function runtimeSecret(string $name): string|false
+    {
+        $value = getenv($name);
+        if ($value !== false) {
+            return $value;
+        }
+        foreach ([$_ENV, $_SERVER] as $source) {
+            if (array_key_exists($name, $source) && is_string($source[$name])) {
+                return $source[$name];
+            }
+        }
+        if (! app()->environment('production') || ! app()->configurationIsCached()) {
+            return false;
+        }
+        if ($this->runtimeSecrets === null) {
+            try {
+                $path = app()->environmentFilePath();
+                $contents = is_readable($path) ? file_get_contents($path) : false;
+                $values = is_string($contents) ? Dotenv::parse($contents) : [];
+                $this->runtimeSecrets = array_intersect_key($values, array_flip([
+                    'MS_GRAPH_CERTIFICATE_PEM_B64', 'MS_GRAPH_PRIVATE_KEY_PEM_B64', 'MS_GRAPH_PRIVATE_KEY_PASSPHRASE',
+                ]));
+            } catch (Throwable) {
+                throw new GraphException('credentials_unavailable');
+            }
+        }
+
+        return $this->runtimeSecrets[$name] ?? false;
     }
 
     private function securePath(mixed $path): string
