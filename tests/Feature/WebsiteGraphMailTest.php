@@ -12,6 +12,7 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use phpseclib3\Crypt\PublicKeyLoader;
 use phpseclib3\Crypt\RSA;
 use Symfony\Component\Process\Process;
@@ -91,7 +92,10 @@ class WebsiteGraphMailTest extends TestCase
         Http::fake(['login.microsoftonline.com/*' => Http::response(['access_token' => 'test-token', 'expires_in' => 3600]), 'graph.microsoft.com/*' => Http::response('', 202)]);
         $this->assertSame('sent', app(WebsiteContactOutbox::class)->send($item->id));
         $this->assertSame('not_pending', app(WebsiteContactOutbox::class)->send($item->id));
-        Http::assertSent(fn (Request $request) => str_contains($request->url(), '/users/info%40arevantes.com/sendMail') && $request['message']['toRecipients'][0]['emailAddress']['address'] === 'visitor@example.test');
+        Http::assertSent(fn (Request $request) => str_contains($request->url(), '/users/info%40arevantes.com/sendMail')
+            && $request['message']['toRecipients'][0]['emailAddress']['address'] === 'visitor@example.test'
+            && $request['message']['replyTo'][0]['emailAddress']['address'] === 'info@arevantes.com'
+            && $request['message']['subject'] === 'Hemos recibido tu consulta · AREVANTES');
         $this->assertDatabaseCount('opportunities', 1);
     }
 
@@ -201,6 +205,7 @@ PHP);
     public function test_authentication_failure_does_not_send_or_log_credentials(): void
     {
         $item = $this->item();
+        Log::shouldReceive('error')->once()->with('No se pudo confirmar el envío de correo de contacto.', ['mail_id' => $item->id, 'error' => 'authentication_http_401']);
         Http::fake(['login.microsoftonline.com/*' => Http::response(['error_description' => 'secret-token-material'], 401)]);
         $this->assertSame('uncertain', app(WebsiteContactOutbox::class)->send($item->id));
         $this->assertSame('authentication_http_401', $item->fresh()->error_class);
