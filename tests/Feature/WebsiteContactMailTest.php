@@ -23,17 +23,35 @@ class WebsiteContactMailTest extends TestCase
         return ['name' => 'Prueba', 'email' => 'visitante@example.test', 'phone' => '600123456', 'service' => 'solar', 'message' => 'Necesito estudiar una instalación solar para mi vivienda.', 'privacy' => '1'];
     }
 
+    public function test_cancellation_route_has_csrf_protection_and_rejects_a_missing_token(): void
+    {
+        $route = app('router')->getRoutes()->getByName('contact-incidents.mail.cancel');
+        $this->assertContains('web', $route->gatherMiddleware());
+        $this->assertContains(\Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class, app('router')->getMiddlewareGroups()['web']);
+        $request = \Illuminate\Http\Request::create('/contact-incidents/mail/1/cancel', 'POST');
+        $request->setLaravelSession(app('session')->driver());
+        $middleware = new class(app(), app('encrypter')) extends \Illuminate\Foundation\Http\Middleware\PreventRequestForgery {
+            protected function runningUnitTests() { return false; }
+        };
+        $this->expectException(\Illuminate\Session\TokenMismatchException::class);
+        $middleware->handle($request, fn () => response('unexpected'));
+    }
+
     public function test_pending_mail_can_be_cancelled_only_by_an_authorized_operator_and_is_audited(): void
     {
         $admin = User::factory()->create(['role' => 'admin']);
         $commercial = User::factory()->create(['role' => 'commercial']);
         $this->post(route('website.contact'), $this->payload());
         $item = WebsiteContactMail::firstOrFail();
-        $args = ['id' => $item->id, 'decision' => 'cancel', '--operator' => (string) $commercial->id, '--reason' => 'Prueba interna'];
-        $this->artisan('website-contact:mail-resolve', $args)->assertFailed();
-        $this->artisan('website-contact:mail-resolve', [...$args, '--operator' => (string) $admin->id, '--reason' => '   '])->assertFailed();
+        $url = route('contact-incidents.mail.cancel', $item);
+        $this->actingAs($admin)->get(route('contact-incidents.index'))->assertOk()->assertInertia(fn (\Inertia\Testing\AssertableInertia $page) => $page->component('notifications/contact-incidents')->has('mail.data')->missing('mail.data.0.recipient'));
+        auth()->logout();
+        $this->artisan('website-contact:mail-resolve', ['id' => $item->id, 'decision' => 'cancel', '--operator' => (string) $admin->id, '--reason' => 'Prueba interna'])->assertFailed();
+        $this->post($url, ['reason' => 'Prueba interna'])->assertRedirect(route('login'));
+        $this->actingAs($commercial)->post($url, ['reason' => 'Prueba interna'])->assertForbidden();
+        $this->actingAs($admin)->post($url, ['reason' => '   '])->assertSessionHasErrors('reason');
         $this->assertSame('pending', $item->fresh()->status);
-        $this->artisan('website-contact:mail-resolve', [...$args, '--operator' => (string) $admin->id])->assertSuccessful();
+        $this->actingAs($admin)->post($url, ['reason' => 'Prueba interna', 'operator' => $commercial->id])->assertSessionHasNoErrors();
         $item->refresh();
         $this->assertSame('cancelled', $item->status);
         $this->assertSame(0, $item->attempts);
@@ -45,7 +63,7 @@ class WebsiteContactMailTest extends TestCase
         config(['contact-mail.enabled' => true, 'contact-mail.transport' => 'smtp', 'mail.default' => 'smtp']);
         Mail::shouldReceive('to')->never();
         $this->assertSame('not_pending', app(WebsiteContactOutbox::class)->send($item->id));
-        $this->artisan('website-contact:mail-resolve', [...$args, '--operator' => (string) $admin->id])->assertFailed();
+        $this->actingAs($admin)->post($url, ['reason' => 'Prueba interna'])->assertSessionHasErrors('reason');
         $this->assertSame(1, AuditLog::where('event', 'contact_mail_pending_cancelled')->where('auditable_id', $item->id)->count());
     }
 
@@ -56,7 +74,7 @@ class WebsiteContactMailTest extends TestCase
         $item = WebsiteContactMail::firstOrFail();
         foreach ([['attempts' => 1], ['attempts' => 0, 'attempted_at' => now()], ['attempts' => 0, 'attempted_at' => null, 'sent_at' => now()]] as $values) {
             $item->update($values);
-            $this->artisan('website-contact:mail-resolve', ['id' => $item->id, 'decision' => 'cancel', '--operator' => (string) $admin->id, '--reason' => 'Prueba interna'])->assertFailed();
+            $this->actingAs($admin)->post(route('contact-incidents.mail.cancel', $item), ['reason' => 'Prueba interna'])->assertSessionHasErrors('reason');
             $this->assertSame('pending', $item->fresh()->status);
         }
         $this->assertDatabaseMissing('audit_logs', ['event' => 'contact_mail_pending_cancelled', 'auditable_id' => $item->id]);
@@ -70,11 +88,11 @@ class WebsiteContactMailTest extends TestCase
         $receipt = WebsiteContactReceipt::findOrFail($items->first()->receipt_id);
         $receipt->update(['expires_at' => now()->subDay()]);
         $first = $items->first();
-        $this->artisan('website-contact:mail-resolve', ['id' => $first->id, 'decision' => 'cancel', '--operator' => (string) $admin->id, '--reason' => 'Prueba interna'])->assertSuccessful();
+        $this->actingAs($admin)->post(route('contact-incidents.mail.cancel', $first), ['reason' => 'Prueba interna'])->assertSessionHasNoErrors();
         $this->artisan('website-contact:prune --apply')->assertSuccessful();
         $this->assertDatabaseHas('website_contact_receipts', ['id' => $receipt->id]);
         foreach ($items->skip(1) as $item) {
-            $this->artisan('website-contact:mail-resolve', ['id' => $item->id, 'decision' => 'cancel', '--operator' => (string) $admin->id, '--reason' => 'Prueba interna'])->assertSuccessful();
+            $this->actingAs($admin)->post(route('contact-incidents.mail.cancel', $item), ['reason' => 'Prueba interna'])->assertSessionHasNoErrors();
         }
         $this->artisan('website-contact:prune --apply')->assertSuccessful();
         $this->assertDatabaseMissing('website_contact_receipts', ['id' => $receipt->id]);

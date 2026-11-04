@@ -18,7 +18,9 @@ type Page = {
     prev_page_url: string | null;
     next_page_url: string | null;
 };
-export default function ContactIncidents({ receipts }: { receipts: Page }) {
+type MailItem = { id: number; opportunity_id: number; receipt_id: number; kind: string };
+type MailPage = { data: MailItem[]; prev_page_url: string | null; next_page_url: string | null };
+export default function ContactIncidents({ receipts, mail }: { receipts: Page; mail: MailPage }) {
     return (
         <>
             <Head title="Incidencias de contacto web" />
@@ -87,6 +89,31 @@ export default function ContactIncidents({ receipts }: { receipts: Page }) {
                         <Link href={receipts.next_page_url}>Siguiente</Link>
                     )}
                 </nav>
+                <section className="space-y-4" aria-labelledby="pending-mail">
+                    <h2 id="pending-mail" className="text-xl font-semibold">Correos pendientes sin intentos</h2>
+                    <p>La cancelación queda registrada con tu usuario. No incluyas datos personales en el motivo.</p>
+                    {!mail.data.length && <p>No hay correos pendientes sin intentos.</p>}
+                    {mail.data.map((item) => (
+                        <article key={item.id} className="space-y-2 rounded-lg border p-4">
+                            <p>Correo #{item.id} · Solicitud #{item.receipt_id} · {item.kind === 'visitor' ? 'Acuse al visitante' : 'Aviso interno'}</p>
+                            <Link href={`/opportunities/${item.opportunity_id}`} className="underline">Ver oportunidad #{item.opportunity_id}</Link>
+                            <Form action={`/contact-incidents/mail/${item.id}/cancel`} method="post">
+                                {({ processing, errors }) => (
+                                    <div className="space-y-2">
+                                        <label htmlFor={`reason-${item.id}`} className="block">Motivo de cancelación</label>
+                                        <input id={`reason-${item.id}`} name="reason" required maxLength={250} className="w-full rounded border p-2" aria-describedby={errors.reason ? `error-${item.id}` : undefined} />
+                                        {errors.reason && <p id={`error-${item.id}`} role="alert">{errors.reason}</p>}
+                                        <button className="underline" disabled={processing}>Cancelar correo pendiente</button>
+                                    </div>
+                                )}
+                            </Form>
+                        </article>
+                    ))}
+                    <nav className="flex gap-4" aria-label="Paginación de correos">
+                        {mail.prev_page_url && <Link href={mail.prev_page_url}>Anterior</Link>}
+                        {mail.next_page_url && <Link href={mail.next_page_url}>Siguiente</Link>}
+                    </nav>
+                </section>
             </main>
         </>
     );

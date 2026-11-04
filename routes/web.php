@@ -218,6 +218,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('notifications', [NotificationHistoryController::class, 'index'])->name('notifications.index');
     Route::get('contact-incidents', [WebsiteContactIncidentsController::class, 'index'])->middleware('can:manage-admin')->name('contact-incidents.index');
     Route::post('contact-incidents/{receipt}/retry', [WebsiteContactIncidentsController::class, 'retry'])->middleware('can:manage-admin')->name('contact-incidents.retry');
+    Route::post('contact-incidents/mail/{mail}/cancel', [WebsiteContactIncidentsController::class, 'cancelMail'])->middleware('can:manage-admin')->name('contact-incidents.mail.cancel');
     Route::post('notifications/{notification}/read', [NotificationHistoryController::class, 'read'])->name('notifications.item.read');
     Route::post('notifications/read', function (Request $request) {
         $request->user()->unreadNotifications->markAsRead();

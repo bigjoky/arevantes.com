@@ -44,7 +44,7 @@ class WebsiteContactMailConcurrencyTest extends TestCase
                 usleep(10000);
             }
             $this->assertTrue($blocked, 'Sender must be waiting for the same row lock.');
-            $this->artisan('website-contact:mail-resolve', ['id' => $item->id, 'decision' => 'cancel', '--operator' => (string) $admin->id, '--reason' => 'Prueba concurrente'])->assertSuccessful();
+            $this->actingAs($admin)->post(route('contact-incidents.mail.cancel', $item), ['reason' => 'Prueba concurrente'])->assertSessionHasNoErrors();
             DB::commit();
             $worker->wait();
             $this->assertTrue($worker->isSuccessful(), $worker->getErrorOutput());
