@@ -5,6 +5,7 @@ use App\Models\Expense;
 use App\Models\MonitoringReading;
 use App\Models\PurchaseDocument;
 use App\Models\SalesDocument;
+use App\Models\User;
 use App\Models\WebsiteContactMail;
 use App\Models\WebsiteContactReceipt;
 use App\Models\WebVitalSample;
@@ -208,8 +209,25 @@ Artisan::command('website-contact:mail-resolve {id} {decision} {--operator=} {--
 
         return 1;
     }
-    $item = \DB::transaction(function () use ($decision) {
+    $item = \DB::transaction(function () use ($decision, $operator, $reason) {
         $item = WebsiteContactMail::query()->lockForUpdate()->findOrFail($this->argument('id'));
+        if ($item->status === 'pending' && $decision === 'cancel') {
+            $actor = ctype_digit((string) $operator) ? User::query()->find((int) $operator) : null;
+            if (! $actor || ! $actor->can('manage-admin') || $item->attempts !== 0 || $item->attempted_at !== null || $item->sent_at !== null || trim($reason) === '') {
+                return null;
+            }
+            $item->update(['status' => 'cancelled']);
+            AuditLog::create([
+                'user_id' => $actor->id,
+                'event' => 'contact_mail_pending_cancelled',
+                'auditable_type' => $item->getMorphClass(),
+                'auditable_id' => $item->id,
+                'old_values' => ['status' => 'pending', 'attempts' => 0],
+                'new_values' => ['status' => 'cancelled', 'reason' => trim($reason)],
+            ]);
+
+            return $item;
+        }
         if (! in_array($item->status, ['uncertain', 'sending'], true)
             || ($item->status === 'sending' && (! $item->attempted_at || $item->attempted_at->gt(now()->subMinutes(5))))) {
             return null;
@@ -221,7 +239,7 @@ Artisan::command('website-contact:mail-resolve {id} {decision} {--operator=} {--
         return $item;
     });
     if (! $item) {
-        $this->error('Solo se pueden resolver envíos inciertos o interrumpidos durante al menos cinco minutos.');
+        $this->error('Estado no resoluble o cancelación pendiente no autorizada.');
 
         return 1;
     }
