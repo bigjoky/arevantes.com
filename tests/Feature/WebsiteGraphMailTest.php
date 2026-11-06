@@ -35,8 +35,10 @@ class WebsiteGraphMailTest extends TestCase
         $url = route('contact-incidents.graph-test.authorize');
         $this->post($url, ['id' => $id, 'recipient' => 'info@arevantes.com'])->assertRedirect(route('login'));
         $this->post(route('contact-incidents.graph-test.send', $id), ['recipient' => 'info@arevantes.com', 'confirmation' => 'ENVIAR UNA VEZ'])->assertRedirect(route('login'));
+        $this->post(route('contact-incidents.graph-test.receipt', $id), ['confirmation' => 'RECIBIDO'])->assertRedirect(route('login'));
         $this->actingAs($other)->post($url, ['id' => $id, 'recipient' => 'info@arevantes.com'])->assertForbidden();
         $this->post(route('contact-incidents.graph-test.send', $id), ['recipient' => 'info@arevantes.com', 'confirmation' => 'ENVIAR UNA VEZ'])->assertForbidden();
+        $this->post(route('contact-incidents.graph-test.receipt', $id), ['confirmation' => 'RECIBIDO'])->assertForbidden();
         $this->actingAs($admin)->post($url, ['id' => $id, 'recipient' => 'other@example.test'])->assertSessionHasErrors('recipient');
         $this->assertDatabaseCount('website_graph_test_authorizations', 0);
         $this->actingAs($admin)->post($url, ['id' => $id, 'recipient' => 'info@arevantes.com'])->assertSessionHasNoErrors();
@@ -44,6 +46,43 @@ class WebsiteGraphMailTest extends TestCase
         $this->assertDatabaseCount('website_graph_test_authorizations', 1);
         $this->assertDatabaseCount('audit_logs', 1);
         $this->assertDatabaseHas('audit_logs', ['event' => 'graph_test_authorized', 'user_id' => $admin->id]);
+    }
+
+    public function test_incidents_page_remains_available_before_separate_migration(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        \Illuminate\Support\Facades\Schema::dropIfExists('website_graph_test_authorizations');
+        $this->withoutVite()->actingAs($admin)->get(route('contact-incidents.index'))
+            ->assertOk()->assertInertia(fn (\Inertia\Testing\AssertableInertia $page) => $page
+                ->component('notifications/contact-incidents')->where('graphTestAvailable', false)
+                ->where('graphTestEnabled', false)->where('graphCampaignConsumed', false)->has('graphTests', 0));
+    }
+
+    public function test_mailer_itself_refuses_technical_send_when_flag_is_disabled(): void
+    {
+        config(['contact-mail.graph_test_enabled' => false]);
+        Http::fake();
+        try {
+            app(\App\Services\Website\Graph\GraphMailer::class)->sendTechnicalTest((string) \Illuminate\Support\Str::uuid());
+            $this->fail('El envío técnico debe permanecer bloqueado.');
+        } catch (GraphException $exception) {
+            $this->assertSame('technical_test_disabled', $exception->category);
+        }
+        Http::assertNothingSent();
+    }
+
+    public function test_consumed_campaign_is_reported_even_when_an_authorization_is_still_available(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $service = app(\App\Services\Website\Graph\GraphTechnicalTest::class);
+        $first = (string) \Illuminate\Support\Str::uuid();
+        $second = (string) \Illuminate\Support\Str::uuid();
+        $service->authorize($admin, $first);
+        $service->authorize($admin, $second);
+        \App\Models\WebsiteGraphTestAuthorization::whereKey($first)->update(['status' => 'accepted', 'attempted_at' => now(), 'accepted_at' => now()]);
+        $this->withoutVite()->actingAs($admin)->get(route('contact-incidents.index'))
+            ->assertOk()->assertInertia(fn (\Inertia\Testing\AssertableInertia $page) => $page
+                ->where('graphTestAvailable', true)->where('graphCampaignConsumed', true)->has('graphTests', 2));
     }
 
     public function test_disabled_flag_blocks_authorization_and_execution_but_allows_history_and_receipt(): void

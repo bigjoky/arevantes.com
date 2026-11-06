@@ -30,10 +30,16 @@ class WebsiteContactIncidentsController extends Controller
         $mail = WebsiteContactMail::query()->where('status', 'pending')->where('attempts', 0)
             ->whereNull('attempted_at')->whereNull('sent_at')->orderBy('id')->paginate(25, ['id', 'opportunity_id', 'receipt_id', 'kind', 'created_at'], 'mail_page');
 
+        // The feature can be deployed before its separately authorized migration.
+        $graphTestAvailable = \Illuminate\Support\Facades\Schema::hasTable('website_graph_test_authorizations');
+        $graphCampaignConsumed = $graphTestAvailable && WebsiteGraphTestAuthorization::query()->whereNotNull('attempted_at')->exists();
+
         return Inertia::render('notifications/contact-incidents', ['receipts' => $receipts, 'mail' => $mail,
-            'graphTestEnabled' => config('contact-mail.graph_test_enabled') === true,
+            'graphTestAvailable' => $graphTestAvailable,
+            'graphCampaignConsumed' => $graphCampaignConsumed,
+            'graphTestEnabled' => $graphTestAvailable && config('contact-mail.graph_test_enabled') === true,
             'graphTestId' => (string) \Illuminate\Support\Str::uuid(),
-            'graphTests' => WebsiteGraphTestAuthorization::query()->latest()->limit(20)->get(['id', 'status', 'created_at', 'accepted_at', 'receipt_confirmed_at'])]);
+            'graphTests' => $graphTestAvailable ? WebsiteGraphTestAuthorization::query()->latest()->limit(20)->get(['id', 'status', 'created_at', 'accepted_at', 'receipt_confirmed_at']) : []]);
     }
 
     public function retry(WebsiteContactReceipt $receipt, WebsiteContactReceipts $service): RedirectResponse

@@ -23,6 +23,9 @@ final class GraphMailer
 
     public function sendTechnicalTest(string $id): void
     {
+        if (config('contact-mail.graph_test_enabled') !== true) {
+            throw new GraphException('technical_test_disabled');
+        }
         $from = strtolower((string) config('contact-mail.from'));
         $replyTo = strtolower((string) config('contact-mail.reply_to'));
         if ($from !== 'info@arevantes.com' || $replyTo !== $from || ! \Illuminate\Support\Str::isUuid($id)) {

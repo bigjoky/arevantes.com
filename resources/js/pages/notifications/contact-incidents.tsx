@@ -21,7 +21,7 @@ type Page = {
 type MailItem = { id: number; opportunity_id: number; receipt_id: number; kind: string };
 type MailPage = { data: MailItem[]; prev_page_url: string | null; next_page_url: string | null };
 type GraphTest = { id: string; status: string; accepted_at: string | null; receipt_confirmed_at: string | null };
-export default function ContactIncidents({ receipts, mail, graphTestId, graphTests, graphTestEnabled }: { receipts: Page; mail: MailPage; graphTestId: string; graphTests: GraphTest[]; graphTestEnabled: boolean }) {
+export default function ContactIncidents({ receipts, mail, graphTestId, graphTests, graphTestEnabled, graphTestAvailable, graphCampaignConsumed }: { receipts: Page; mail: MailPage; graphTestId: string; graphTests: GraphTest[]; graphTestEnabled: boolean; graphTestAvailable: boolean; graphCampaignConsumed: boolean }) {
     return (
         <>
             <Head title="Incidencias de contacto web" />
@@ -118,8 +118,10 @@ export default function ContactIncidents({ receipts, mail, graphTestId, graphTes
                 <section className="space-y-4 rounded-lg border p-4" aria-labelledby="graph-test">
                     <h2 id="graph-test" className="text-xl font-semibold">Prueba técnica de Microsoft Graph</h2>
                     <p>La prueba utiliza exclusivamente info@arevantes.com como remitente y destinatario. Autorizar no envía el mensaje. La aceptación de Microsoft no confirma su recepción.</p>
-                    {!graphTestEnabled && <p>La prueba técnica está desactivada; el historial sigue disponible.</p>}
-                    {graphTestEnabled && <Form action="/contact-incidents/graph-test" method="post">
+                    {!graphTestAvailable && <p>La prueba técnica no está disponible: la migración está pendiente.</p>}
+                    {graphCampaignConsumed && <p>Campaña finalizada: intento consumido</p>}
+                    {graphTestAvailable && !graphTestEnabled && <p>La prueba técnica está desactivada; el historial sigue disponible.</p>}
+                    {graphTestEnabled && !graphCampaignConsumed && <Form action="/contact-incidents/graph-test" method="post">
                         {({ processing, errors }) => <div className="space-y-2">
                             <input type="hidden" name="id" value={graphTestId} />
                             <label className="block" htmlFor="test-recipient">Escribe info@arevantes.com para autorizar este destinatario</label>
@@ -130,7 +132,7 @@ export default function ContactIncidents({ receipts, mail, graphTestId, graphTes
                     </Form>}
                     {graphTests.map((test) => <article key={test.id} className="space-y-2 border-t pt-3">
                         <p>Prueba {test.id} · {test.status === 'accepted' ? (test.receipt_confirmed_at ? 'Aceptada por Microsoft; recepción confirmada por Administración' : 'Aceptada por Microsoft; recepción sin verificar') : test.status === 'authorized' ? 'Autorizada, sin enviar' : 'Resultado incierto o en curso; no reenviar'}</p>
-                        {graphTestEnabled && test.status === 'authorized' && <Form action={`/contact-incidents/graph-test/${test.id}/send`} method="post">
+                        {graphTestEnabled && !graphCampaignConsumed && test.status === 'authorized' && <Form action={`/contact-incidents/graph-test/${test.id}/send`} method="post">
                             {({ processing, errors }) => <div className="space-y-2">
                                 <input type="hidden" name="recipient" value="info@arevantes.com" />
                                 <label className="block" htmlFor={`confirm-${test.id}`}>Escribe ENVIAR UNA VEZ para confirmar el envío a info@arevantes.com</label>
