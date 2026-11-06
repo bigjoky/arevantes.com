@@ -198,6 +198,21 @@ $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 if (! $app->configurationIsCached() || getenv('MS_GRAPH_PRIVATE_KEY_PEM_B64') !== false) { exit(2); }
 Illuminate\Support\Facades\Http::fake(['login.microsoftonline.com/*' => Illuminate\Support\Facades\Http::response(['access_token' => 'simulated', 'expires_in' => 3600])]);
 if (app(App\Services\Website\Graph\GraphAuthentication::class)->token() !== 'simulated') { exit(3); }
+putenv('MS_GRAPH_CERTIFICATE_PEM_B64=invalid-process-value');
+try {
+    (new App\Services\Website\Graph\GraphAuthentication)->token();
+    exit(4);
+} catch (App\Services\Website\Graph\GraphException $e) {
+    if ($e->category !== 'credentials_unavailable') { exit(5); }
+}
+putenv('MS_GRAPH_CERTIFICATE_PEM_B64');
+unlink($app->environmentFilePath());
+try {
+    (new App\Services\Website\Graph\GraphAuthentication)->token();
+    exit(6);
+} catch (App\Services\Website\Graph\GraphException $e) {
+    if ($e->category !== 'credentials_path_disabled') { exit(7); }
+}
 echo 'ok';
 PHP);
         try {
@@ -242,6 +257,21 @@ PHP);
         config(['contact-mail.graph.private_key_passphrase' => 'test-passphrase', 'contact-mail.graph.sha1_thumbprint' => str_repeat('a', 40)]);
         $this->assertSame('uncertain', app(WebsiteContactOutbox::class)->send($item->id));
         $this->assertSame('certificate_mismatch', $item->fresh()->error_class);
+        Http::assertNothingSent();
+    }
+
+    public function test_certificate_and_unrelated_private_key_are_rejected(): void
+    {
+        $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
+        openssl_pkey_export($key, $pem, 'test-passphrase');
+        file_put_contents($this->keyPath, $pem);
+        Http::fake();
+        try {
+            app(GraphAuthentication::class)->token();
+            $this->fail('La clave privada no corresponde al certificado.');
+        } catch (GraphException $e) {
+            $this->assertSame('credentials_invalid', $e->category);
+        }
         Http::assertNothingSent();
     }
 
