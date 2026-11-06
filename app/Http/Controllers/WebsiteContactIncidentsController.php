@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\AuditLog;
 use App\Models\WebsiteContactReceipt;
 use App\Models\WebsiteContactMail;
+use App\Models\WebsiteGraphTestAuthorization;
+use App\Services\Website\Graph\GraphTechnicalTest;
 use App\Services\Website\WebsiteContactReceipts;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -28,7 +30,9 @@ class WebsiteContactIncidentsController extends Controller
         $mail = WebsiteContactMail::query()->where('status', 'pending')->where('attempts', 0)
             ->whereNull('attempted_at')->whereNull('sent_at')->orderBy('id')->paginate(25, ['id', 'opportunity_id', 'receipt_id', 'kind', 'created_at'], 'mail_page');
 
-        return Inertia::render('notifications/contact-incidents', ['receipts' => $receipts, 'mail' => $mail]);
+        return Inertia::render('notifications/contact-incidents', ['receipts' => $receipts, 'mail' => $mail,
+            'graphTestId' => (string) \Illuminate\Support\Str::uuid(),
+            'graphTests' => WebsiteGraphTestAuthorization::query()->latest()->limit(20)->get(['id', 'status', 'created_at', 'accepted_at', 'receipt_confirmed_at'])]);
     }
 
     public function retry(WebsiteContactReceipt $receipt, WebsiteContactReceipts $service): RedirectResponse
@@ -66,5 +70,29 @@ class WebsiteContactIncidentsController extends Controller
         });
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Correo pendiente cancelado.']);
+    }
+
+    public function authorizeGraphTest(Request $request, GraphTechnicalTest $service): RedirectResponse
+    {
+        $data = $request->validate(['id' => ['required', 'uuid'], 'recipient' => ['required', 'in:info@arevantes.com']]);
+        $service->authorize($request->user(), $data['id']);
+        return back()->with('toast', ['type' => 'success', 'message' => 'Prueba autorizada; todavía no se ha enviado.']);
+    }
+
+    public function executeGraphTest(Request $request, string $id, GraphTechnicalTest $service): RedirectResponse
+    {
+        $request->validate(['confirmation' => ['required', 'in:ENVIAR UNA VEZ'], 'recipient' => ['required', 'in:info@arevantes.com']]);
+        abort_unless(\Illuminate\Support\Str::isUuid($id), 404);
+        $status = $service->execute($request->user(), $id);
+        return back()->with('toast', ['type' => $status === 'accepted' ? 'success' : 'error',
+            'message' => $status === 'accepted' ? 'Microsoft aceptó el mensaje; la recepción debe comprobarse en el buzón.' : 'Resultado incierto: no volver a enviar.']);
+    }
+
+    public function confirmGraphTestReceipt(Request $request, string $id, GraphTechnicalTest $service): RedirectResponse
+    {
+        $request->validate(['confirmation' => ['required', 'in:RECIBIDO']]);
+        abort_unless(\Illuminate\Support\Str::isUuid($id), 404);
+        $service->confirmReceipt($request->user(), $id);
+        return back()->with('toast', ['type' => 'success', 'message' => 'Recepción confirmada por el administrador.']);
     }
 }

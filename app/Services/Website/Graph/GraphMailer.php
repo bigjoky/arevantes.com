@@ -16,17 +16,32 @@ final class GraphMailer
         if ($from !== 'info@arevantes.com' || $replyTo !== $from) {
             throw new GraphException('sender_configuration');
         }
-        $auth = app(GraphAuthentication::class);
-        $token = $auth->token();
         $visitor = $item->kind === 'visitor';
         $message = new WebsiteContactMailMessage($visitor, $visitor ? null : route('opportunities.show', $item->opportunity_id));
+        $this->sendMessage($from, $replyTo, $item->recipient, $message->envelope()->subject, $message->render());
+    }
+
+    public function sendTechnicalTest(string $id): void
+    {
+        $from = strtolower((string) config('contact-mail.from'));
+        $replyTo = strtolower((string) config('contact-mail.reply_to'));
+        if ($from !== 'info@arevantes.com' || $replyTo !== $from || ! \Illuminate\Support\Str::isUuid($id)) {
+            throw new GraphException('sender_configuration');
+        }
+        $this->sendMessage($from, $replyTo, 'info@arevantes.com', 'Prueba técnica de correo · AREVANTES', '<p>Prueba técnica autorizada de Microsoft Graph. Identificador: '.e($id).'</p>');
+    }
+
+    private function sendMessage(string $from, string $replyTo, string $recipient, string $subject, string $html): void
+    {
+        $auth = app(GraphAuthentication::class);
+        $token = $auth->token();
         try {
             $response = Http::withToken($token)->timeout(15)->connectTimeout(5)->acceptJson()->post(
                 'https://graph.microsoft.com/v1.0/users/'.rawurlencode($from).'/sendMail',
                 ['message' => [
-                    'subject' => $message->envelope()->subject,
-                    'body' => ['contentType' => 'HTML', 'content' => $message->render()],
-                    'toRecipients' => [['emailAddress' => ['address' => $item->recipient]]],
+                    'subject' => $subject,
+                    'body' => ['contentType' => 'HTML', 'content' => $html],
+                    'toRecipients' => [['emailAddress' => ['address' => $recipient]]],
                     'replyTo' => [['emailAddress' => ['address' => $replyTo]]],
                 ]],
             );

@@ -20,7 +20,8 @@ type Page = {
 };
 type MailItem = { id: number; opportunity_id: number; receipt_id: number; kind: string };
 type MailPage = { data: MailItem[]; prev_page_url: string | null; next_page_url: string | null };
-export default function ContactIncidents({ receipts, mail }: { receipts: Page; mail: MailPage }) {
+type GraphTest = { id: string; status: string; accepted_at: string | null; receipt_confirmed_at: string | null };
+export default function ContactIncidents({ receipts, mail, graphTestId, graphTests }: { receipts: Page; mail: MailPage; graphTestId: string; graphTests: GraphTest[] }) {
     return (
         <>
             <Head title="Incidencias de contacto web" />
@@ -113,6 +114,39 @@ export default function ContactIncidents({ receipts, mail }: { receipts: Page; m
                         {mail.prev_page_url && <Link href={mail.prev_page_url}>Anterior</Link>}
                         {mail.next_page_url && <Link href={mail.next_page_url}>Siguiente</Link>}
                     </nav>
+                </section>
+                <section className="space-y-4 rounded-lg border p-4" aria-labelledby="graph-test">
+                    <h2 id="graph-test" className="text-xl font-semibold">Prueba técnica de Microsoft Graph</h2>
+                    <p>La prueba utiliza exclusivamente info@arevantes.com como remitente y destinatario. Autorizar no envía el mensaje. La aceptación de Microsoft no confirma su recepción.</p>
+                    <Form action="/contact-incidents/graph-test" method="post">
+                        {({ processing, errors }) => <div className="space-y-2">
+                            <input type="hidden" name="id" value={graphTestId} />
+                            <label className="block" htmlFor="test-recipient">Escribe info@arevantes.com para autorizar este destinatario</label>
+                            <input className="w-full rounded border p-2" id="test-recipient" name="recipient" type="email" required />
+                            {errors.recipient && <p role="alert">{errors.recipient}</p>}
+                            <button className="underline" disabled={processing}>Autorizar una prueba</button>
+                        </div>}
+                    </Form>
+                    {graphTests.map((test) => <article key={test.id} className="space-y-2 border-t pt-3">
+                        <p>Prueba {test.id} · {test.status === 'accepted' ? (test.receipt_confirmed_at ? 'Aceptada por Microsoft; recepción confirmada por Administración' : 'Aceptada por Microsoft; recepción sin verificar') : test.status === 'authorized' ? 'Autorizada, sin enviar' : 'Resultado incierto o en curso; no reenviar'}</p>
+                        {test.status === 'authorized' && <Form action={`/contact-incidents/graph-test/${test.id}/send`} method="post">
+                            {({ processing, errors }) => <div className="space-y-2">
+                                <input type="hidden" name="recipient" value="info@arevantes.com" />
+                                <label className="block" htmlFor={`confirm-${test.id}`}>Escribe ENVIAR UNA VEZ para confirmar el envío a info@arevantes.com</label>
+                                <input className="w-full rounded border p-2" id={`confirm-${test.id}`} name="confirmation" required />
+                                {(errors.confirmation || errors.test) && <p role="alert">{errors.confirmation || errors.test}</p>}
+                                <button className="underline" disabled={processing}>Enviar una prueba</button>
+                            </div>}
+                        </Form>}
+                        {test.status === 'accepted' && !test.receipt_confirmed_at && <Form action={`/contact-incidents/graph-test/${test.id}/receipt`} method="post">
+                            {({ processing, errors }) => <div className="space-y-2">
+                                <label className="block" htmlFor={`receipt-${test.id}`}>Tras comprobar el buzón, escribe RECIBIDO</label>
+                                <input className="w-full rounded border p-2" id={`receipt-${test.id}`} name="confirmation" required />
+                                {(errors.confirmation || errors.test) && <p role="alert">{errors.confirmation || errors.test}</p>}
+                                <button className="underline" disabled={processing}>Registrar recepción comprobada</button>
+                            </div>}
+                        </Form>}
+                    </article>)}
                 </section>
             </main>
         </>

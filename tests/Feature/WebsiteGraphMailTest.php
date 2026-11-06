@@ -27,6 +27,85 @@ class WebsiteGraphMailTest extends TestCase
 
     private string $publicKey;
 
+    public function test_technical_test_requires_authorized_session_and_exact_recipient(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $other = User::factory()->create(['role' => 'commercial']);
+        $id = (string) \Illuminate\Support\Str::uuid();
+        $url = route('contact-incidents.graph-test.authorize');
+        $this->post($url, ['id' => $id, 'recipient' => 'info@arevantes.com'])->assertRedirect(route('login'));
+        $this->post(route('contact-incidents.graph-test.send', $id), ['recipient' => 'info@arevantes.com', 'confirmation' => 'ENVIAR UNA VEZ'])->assertRedirect(route('login'));
+        $this->actingAs($other)->post($url, ['id' => $id, 'recipient' => 'info@arevantes.com'])->assertForbidden();
+        $this->post(route('contact-incidents.graph-test.send', $id), ['recipient' => 'info@arevantes.com', 'confirmation' => 'ENVIAR UNA VEZ'])->assertForbidden();
+        $this->actingAs($admin)->post($url, ['id' => $id, 'recipient' => 'other@example.test'])->assertSessionHasErrors('recipient');
+        $this->assertDatabaseCount('website_graph_test_authorizations', 0);
+        $this->actingAs($admin)->post($url, ['id' => $id, 'recipient' => 'info@arevantes.com'])->assertSessionHasNoErrors();
+        $this->post($url, ['id' => $id, 'recipient' => 'info@arevantes.com'])->assertSessionHasNoErrors();
+        $this->assertDatabaseCount('website_graph_test_authorizations', 1);
+        $this->assertDatabaseCount('audit_logs', 1);
+        $this->assertDatabaseHas('audit_logs', ['event' => 'graph_test_authorized', 'user_id' => $admin->id]);
+    }
+
+    public function test_technical_test_routes_use_csrf_middleware(): void
+    {
+        foreach (['contact-incidents.graph-test.authorize', 'contact-incidents.graph-test.send', 'contact-incidents.graph-test.receipt'] as $name) {
+            $this->assertContains('web', app('router')->getRoutes()->getByName($name)->gatherMiddleware());
+        }
+        $this->assertContains(\Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class, app('router')->getMiddlewareGroups()['web']);
+        $request = \Illuminate\Http\Request::create('/contact-incidents/graph-test', 'POST');
+        $request->setLaravelSession(app('session')->driver());
+        $middleware = new class(app(), app('encrypter')) extends \Illuminate\Foundation\Http\Middleware\PreventRequestForgery {
+            protected function runningUnitTests() { return false; }
+        };
+        $this->expectException(\Illuminate\Session\TokenMismatchException::class);
+        $middleware->handle($request, fn () => response('unexpected'));
+    }
+
+    public function test_technical_test_acceptance_is_single_and_does_not_enable_general_mail(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $id = (string) \Illuminate\Support\Str::uuid();
+        config(['contact-mail.enabled' => false]);
+        Http::fake(['login.microsoftonline.com/*' => Http::response(['access_token' => 'test-token', 'expires_in' => 3600]), 'graph.microsoft.com/*' => Http::response('', 202)]);
+        $this->actingAs($admin)->post(route('contact-incidents.graph-test.authorize'), ['id' => $id, 'recipient' => 'info@arevantes.com'])->assertSessionHasNoErrors();
+        $url = route('contact-incidents.graph-test.send', $id);
+        $this->post($url, ['recipient' => 'other@example.test', 'confirmation' => 'ENVIAR UNA VEZ'])->assertSessionHasErrors('recipient');
+        $this->post($url, ['recipient' => 'info@arevantes.com', 'confirmation' => 'ENVIAR UNA VEZ'])->assertSessionHasNoErrors();
+        $this->post($url, ['recipient' => 'info@arevantes.com', 'confirmation' => 'ENVIAR UNA VEZ'])->assertSessionHasErrors('test');
+        $this->assertDatabaseHas('website_graph_test_authorizations', ['id' => $id, 'status' => 'accepted', 'authorized_by' => $admin->id, 'executed_by' => $admin->id]);
+        $this->assertDatabaseHas('audit_logs', ['event' => 'graph_test_started', 'user_id' => $admin->id]);
+        $this->assertDatabaseHas('audit_logs', ['event' => 'graph_test_accepted', 'user_id' => $admin->id]);
+        $this->assertDatabaseHas('website_graph_test_authorizations', ['id' => $id, 'receipt_confirmed_at' => null]);
+        $this->post(route('contact-incidents.graph-test.receipt', $id), ['confirmation' => 'RECIBIDO'])->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('website_graph_test_authorizations', ['id' => $id, 'receipt_confirmed_by' => $admin->id]);
+        $this->assertDatabaseHas('audit_logs', ['event' => 'graph_test_receipt_confirmed', 'user_id' => $admin->id]);
+        $this->post(route('contact-incidents.graph-test.receipt', $id), ['confirmation' => 'RECIBIDO'])->assertSessionHasErrors('test');
+        $this->assertFalse(config('contact-mail.enabled'));
+        Http::assertSentCount(2);
+        Http::assertSent(fn (Request $r) => str_contains($r->url(), 'graph.microsoft.com') && $r['message']['toRecipients'][0]['emailAddress']['address'] === 'info@arevantes.com' && str_contains($r['message']['subject'], 'Prueba técnica'));
+    }
+
+    public function test_technical_test_failure_is_uncertain_and_cannot_be_replayed(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        foreach (['auth', 'forbidden', 'timeout'] as $failure) {
+            Cache::flush();
+            $id = (string) \Illuminate\Support\Str::uuid();
+            Http::fake(function (Request $r) use ($failure) {
+                if (str_contains($r->url(), 'login.microsoftonline.com')) {
+                    return $failure === 'auth' ? Http::response([], 401) : Http::response(['access_token' => 'test-token', 'expires_in' => 3600]);
+                }
+                if ($failure === 'timeout') { throw new ConnectionException('timeout'); }
+                return Http::response('', 403);
+            });
+            $this->actingAs($admin)->post(route('contact-incidents.graph-test.authorize'), ['id' => $id, 'recipient' => 'info@arevantes.com'])->assertSessionHasNoErrors();
+            $args = ['recipient' => 'info@arevantes.com', 'confirmation' => 'ENVIAR UNA VEZ'];
+            $this->post(route('contact-incidents.graph-test.send', $id), $args)->assertSessionHasNoErrors();
+            $this->assertDatabaseHas('website_graph_test_authorizations', ['id' => $id, 'status' => 'uncertain']);
+            $this->post(route('contact-incidents.graph-test.send', $id), $args)->assertSessionHasErrors('test');
+        }
+    }
+
     protected function setUp(): void
     {
         parent::setUp();

@@ -10,6 +10,19 @@ class WebsiteContactPostgresSecurityTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_graph_test_authorizations_are_not_exposed_to_api_roles(): void
+    {
+        if (DB::getDriverName() !== 'pgsql') { $this->markTestSkipped('PostgreSQL is required.'); }
+        $table = 'website_graph_test_authorizations';
+        $this->assertTrue(DB::selectOne('select relrowsecurity from pg_class where oid = ?::regclass', [$table])->relrowsecurity);
+        foreach (['anon', 'authenticated', 'service_role'] as $role) {
+            if (! DB::selectOne('select exists(select 1 from pg_roles where rolname = ?) as present', [$role])->present) { $this->markTestSkipped('Supabase API roles are required.'); }
+            foreach (['SELECT', 'INSERT', 'UPDATE', 'DELETE'] as $privilege) {
+                $this->assertFalse(DB::selectOne('select has_table_privilege(?, ?, ?) as allowed', [$role, $table, $privilege])->allowed);
+            }
+        }
+    }
+
     public function test_contact_tables_are_private_from_api_roles(): void
     {
         if (DB::getDriverName() !== 'pgsql') {
