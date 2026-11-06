@@ -10,6 +10,20 @@ class WebsiteContactPostgresSecurityTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_campaign_unique_index_rejects_a_second_consumed_uuid(): void
+    {
+        if (DB::getDriverName() !== 'pgsql') { $this->markTestSkipped('PostgreSQL is required.'); }
+        $admin = \App\Models\User::factory()->create(['role' => 'admin']);
+        $first = (string) \Illuminate\Support\Str::uuid();
+        $second = (string) \Illuminate\Support\Str::uuid();
+        foreach ([$first, $second] as $id) {
+            \App\Models\WebsiteGraphTestAuthorization::create(['id' => $id, 'authorized_by' => $admin->id, 'status' => 'authorized']);
+        }
+        \App\Models\WebsiteGraphTestAuthorization::whereKey($first)->update(['status' => 'sending', 'attempted_at' => now()]);
+        $this->expectException(\Illuminate\Database\UniqueConstraintViolationException::class);
+        \App\Models\WebsiteGraphTestAuthorization::whereKey($second)->update(['status' => 'sending', 'attempted_at' => now()]);
+    }
+
     public function test_graph_test_authorizations_are_not_exposed_to_api_roles(): void
     {
         if (DB::getDriverName() !== 'pgsql') { $this->markTestSkipped('PostgreSQL is required.'); }

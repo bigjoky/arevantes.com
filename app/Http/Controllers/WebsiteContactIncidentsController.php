@@ -31,6 +31,7 @@ class WebsiteContactIncidentsController extends Controller
             ->whereNull('attempted_at')->whereNull('sent_at')->orderBy('id')->paginate(25, ['id', 'opportunity_id', 'receipt_id', 'kind', 'created_at'], 'mail_page');
 
         return Inertia::render('notifications/contact-incidents', ['receipts' => $receipts, 'mail' => $mail,
+            'graphTestEnabled' => config('contact-mail.graph_test_enabled') === true,
             'graphTestId' => (string) \Illuminate\Support\Str::uuid(),
             'graphTests' => WebsiteGraphTestAuthorization::query()->latest()->limit(20)->get(['id', 'status', 'created_at', 'accepted_at', 'receipt_confirmed_at'])]);
     }

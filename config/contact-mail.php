@@ -2,6 +2,7 @@
 
 return [
     'enabled' => env('CONTACT_MAIL_ENABLED', false),
+    'graph_test_enabled' => env('CONTACT_GRAPH_TEST_ENABLED', false),
     'transport' => env('CONTACT_MAIL_TRANSPORT', 'smtp'),
     'from' => env('CONTACT_MAIL_FROM', 'info@arevantes.com'),
     'graph' => [

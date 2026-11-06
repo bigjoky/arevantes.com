@@ -46,6 +46,40 @@ class WebsiteGraphMailTest extends TestCase
         $this->assertDatabaseHas('audit_logs', ['event' => 'graph_test_authorized', 'user_id' => $admin->id]);
     }
 
+    public function test_disabled_flag_blocks_authorization_and_execution_but_allows_history_and_receipt(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $id = (string) \Illuminate\Support\Str::uuid();
+        $next = (string) \Illuminate\Support\Str::uuid();
+        $this->actingAs($admin)->post(route('contact-incidents.graph-test.authorize'), ['id' => $id, 'recipient' => 'info@arevantes.com'])->assertSessionHasNoErrors();
+        config(['contact-mail.graph_test_enabled' => false]);
+        Http::fake();
+        $this->post(route('contact-incidents.graph-test.authorize'), ['id' => $next, 'recipient' => 'info@arevantes.com'])->assertSessionHasErrors('test');
+        $this->post(route('contact-incidents.graph-test.send', $id), ['recipient' => 'info@arevantes.com', 'confirmation' => 'ENVIAR UNA VEZ'])->assertSessionHasErrors('test');
+        $this->withoutVite()->get(route('contact-incidents.index'))->assertOk();
+        \App\Models\WebsiteGraphTestAuthorization::whereKey($id)->update(['status' => 'accepted', 'attempted_at' => now(), 'accepted_at' => now()]);
+        $this->post(route('contact-incidents.graph-test.receipt', $id), ['confirmation' => 'RECIBIDO'])->assertSessionHasNoErrors();
+        Http::assertNothingSent();
+    }
+
+    public function test_campaign_cannot_be_reused_with_another_uuid_after_attempt_or_interruption(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $first = (string) \Illuminate\Support\Str::uuid();
+        $second = (string) \Illuminate\Support\Str::uuid();
+        $service = app(\App\Services\Website\Graph\GraphTechnicalTest::class);
+        $service->authorize($admin, $first);
+        $service->authorize($admin, $second);
+        // Simulate a process stopping immediately after its transaction commits.
+        \App\Models\WebsiteGraphTestAuthorization::whereKey($first)->update(['status' => 'sending', 'attempted_at' => now(), 'executed_by' => $admin->id]);
+        Http::fake();
+        $this->actingAs($admin)->post(route('contact-incidents.graph-test.send', $second), ['recipient' => 'info@arevantes.com', 'confirmation' => 'ENVIAR UNA VEZ'])->assertSessionHasErrors('test');
+        $this->post(route('contact-incidents.graph-test.authorize'), ['id' => (string) \Illuminate\Support\Str::uuid(), 'recipient' => 'info@arevantes.com'])->assertSessionHasErrors('test');
+        $this->assertDatabaseHas('website_graph_test_authorizations', ['id' => $first, 'status' => 'sending']);
+        $this->assertDatabaseHas('website_graph_test_authorizations', ['id' => $second, 'status' => 'authorized', 'attempted_at' => null]);
+        Http::assertNothingSent();
+    }
+
     public function test_technical_test_routes_use_csrf_middleware(): void
     {
         foreach (['contact-incidents.graph-test.authorize', 'contact-incidents.graph-test.send', 'contact-incidents.graph-test.receipt'] as $name) {
@@ -68,10 +102,13 @@ class WebsiteGraphMailTest extends TestCase
         config(['contact-mail.enabled' => false]);
         Http::fake(['login.microsoftonline.com/*' => Http::response(['access_token' => 'test-token', 'expires_in' => 3600]), 'graph.microsoft.com/*' => Http::response('', 202)]);
         $this->actingAs($admin)->post(route('contact-incidents.graph-test.authorize'), ['id' => $id, 'recipient' => 'info@arevantes.com'])->assertSessionHasNoErrors();
+        $second = (string) \Illuminate\Support\Str::uuid();
+        $this->post(route('contact-incidents.graph-test.authorize'), ['id' => $second, 'recipient' => 'info@arevantes.com'])->assertSessionHasNoErrors();
         $url = route('contact-incidents.graph-test.send', $id);
         $this->post($url, ['recipient' => 'other@example.test', 'confirmation' => 'ENVIAR UNA VEZ'])->assertSessionHasErrors('recipient');
         $this->post($url, ['recipient' => 'info@arevantes.com', 'confirmation' => 'ENVIAR UNA VEZ'])->assertSessionHasNoErrors();
         $this->post($url, ['recipient' => 'info@arevantes.com', 'confirmation' => 'ENVIAR UNA VEZ'])->assertSessionHasErrors('test');
+        $this->post(route('contact-incidents.graph-test.send', $second), ['recipient' => 'info@arevantes.com', 'confirmation' => 'ENVIAR UNA VEZ'])->assertSessionHasErrors('test');
         $this->assertDatabaseHas('website_graph_test_authorizations', ['id' => $id, 'status' => 'accepted', 'authorized_by' => $admin->id, 'executed_by' => $admin->id]);
         $this->assertDatabaseHas('audit_logs', ['event' => 'graph_test_started', 'user_id' => $admin->id]);
         $this->assertDatabaseHas('audit_logs', ['event' => 'graph_test_accepted', 'user_id' => $admin->id]);
@@ -89,6 +126,7 @@ class WebsiteGraphMailTest extends TestCase
     {
         $admin = User::factory()->create(['role' => 'admin']);
         foreach (['auth', 'forbidden', 'timeout'] as $failure) {
+            \App\Models\WebsiteGraphTestAuthorization::query()->delete(); // Isolated scenarios, not a production reset.
             Cache::flush();
             $id = (string) \Illuminate\Support\Str::uuid();
             Http::fake(function (Request $r) use ($failure) {
@@ -99,10 +137,13 @@ class WebsiteGraphMailTest extends TestCase
                 return Http::response('', 403);
             });
             $this->actingAs($admin)->post(route('contact-incidents.graph-test.authorize'), ['id' => $id, 'recipient' => 'info@arevantes.com'])->assertSessionHasNoErrors();
+            $second = (string) \Illuminate\Support\Str::uuid();
+            $this->post(route('contact-incidents.graph-test.authorize'), ['id' => $second, 'recipient' => 'info@arevantes.com'])->assertSessionHasNoErrors();
             $args = ['recipient' => 'info@arevantes.com', 'confirmation' => 'ENVIAR UNA VEZ'];
             $this->post(route('contact-incidents.graph-test.send', $id), $args)->assertSessionHasNoErrors();
             $this->assertDatabaseHas('website_graph_test_authorizations', ['id' => $id, 'status' => 'uncertain']);
             $this->post(route('contact-incidents.graph-test.send', $id), $args)->assertSessionHasErrors('test');
+            $this->post(route('contact-incidents.graph-test.send', $second), $args)->assertSessionHasErrors('test');
         }
     }
 
@@ -119,7 +160,7 @@ class WebsiteGraphMailTest extends TestCase
         $this->keyPath = tempnam(sys_get_temp_dir(), 'contact-key-');
         file_put_contents($this->certPath, $certPem);
         file_put_contents($this->keyPath, $keyPem);
-        config(['contact-mail.enabled' => true, 'contact-mail.transport' => 'graph', 'contact-mail.from' => 'info@arevantes.com', 'contact-mail.reply_to' => 'info@arevantes.com',
+        config(['contact-mail.graph_test_enabled' => true, 'contact-mail.enabled' => true, 'contact-mail.transport' => 'graph', 'contact-mail.from' => 'info@arevantes.com', 'contact-mail.reply_to' => 'info@arevantes.com',
             'contact-mail.graph.tenant_id' => '7c831860-91be-46c8-9e16-afea4d7b12fa', 'contact-mail.graph.client_id' => '7dbadeb2-e9ec-49dc-ae83-68a9563c236d',
             'contact-mail.graph.certificate_path' => $this->certPath, 'contact-mail.graph.private_key_path' => $this->keyPath,
             'contact-mail.graph.private_key_passphrase' => 'test-passphrase', 'contact-mail.graph.sha1_thumbprint' => openssl_x509_fingerprint($cert, 'sha1')]);

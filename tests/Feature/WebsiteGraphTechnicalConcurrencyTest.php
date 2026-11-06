@@ -26,17 +26,20 @@ class WebsiteGraphTechnicalConcurrencyTest extends TestCase
         $fingerprint = openssl_x509_fingerprint($cert, 'sha1');
         $admin = User::factory()->create(['role' => 'admin']);
         $id = (string) Str::uuid();
-        config(['contact-mail.enabled' => false, 'contact-mail.transport' => 'graph', 'contact-mail.from' => 'info@arevantes.com', 'contact-mail.reply_to' => 'info@arevantes.com',
+        $otherId = (string) Str::uuid();
+        $otherAdmin = User::factory()->create(['role' => 'admin']);
+        config(['contact-mail.graph_test_enabled' => true, 'contact-mail.enabled' => false, 'contact-mail.transport' => 'graph', 'contact-mail.from' => 'info@arevantes.com', 'contact-mail.reply_to' => 'info@arevantes.com',
             'contact-mail.graph.tenant_id' => '7c831860-91be-46c8-9e16-afea4d7b12fa', 'contact-mail.graph.client_id' => '7dbadeb2-e9ec-49dc-ae83-68a9563c236d', 'contact-mail.graph.sha1_thumbprint' => $fingerprint, 'cache.default' => 'array']);
         putenv('MS_GRAPH_CERTIFICATE_PEM_B64='.base64_encode($certPem));
         putenv('MS_GRAPH_PRIVATE_KEY_PEM_B64='.base64_encode($keyPem));
         putenv('MS_GRAPH_PRIVATE_KEY_PASSPHRASE=synthetic-passphrase');
         Http::fake(['login.microsoftonline.com/*' => Http::response(['access_token' => 'synthetic', 'expires_in' => 3600]), 'graph.microsoft.com/*' => Http::response('', 202)]);
         app(GraphTechnicalTest::class)->authorize($admin, $id);
+        app(GraphTechnicalTest::class)->authorize($otherAdmin, $otherId);
         DB::beginTransaction();
         try {
-            WebsiteGraphTestAuthorization::query()->whereKey($id)->lockForUpdate()->firstOrFail();
-            $worker = new Process([PHP_BINARY, base_path('tests/Support/graph-technical-test-worker.php'), $id, (string) $admin->id], base_path(), [
+            DB::select("SELECT pg_advisory_xact_lock(hashtextextended('graph-technical-test:initial-campaign', 0))");
+            $worker = new Process([PHP_BINARY, base_path('tests/Support/graph-technical-test-worker.php'), $otherId, (string) $otherAdmin->id], base_path(), [
                 'APP_ENV' => 'testing', 'APP_KEY' => 'base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
                 'DB_CONNECTION' => 'pgsql', 'DB_URL' => '', 'DB_HOST' => '127.0.0.1', 'DB_PORT' => (string) config('database.connections.pgsql.port'),
                 'DB_DATABASE' => DB::connection()->getDatabaseName(), 'DB_USERNAME' => config('database.connections.pgsql.username'), 'DB_PASSWORD' => config('database.connections.pgsql.password') ?? '',

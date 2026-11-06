@@ -14,10 +14,10 @@ final class GraphTechnicalTest
     public function authorize(User $actor, string $id): void
     {
         abort_unless($actor->can('manage-admin'), 403);
+        $this->requireEnabled();
         DB::transaction(function () use ($actor, $id): void {
-            if (DB::getDriverName() === 'pgsql') {
-                DB::select('SELECT pg_advisory_xact_lock(hashtextextended(?, 0))', ['graph-technical-test:'.$id]);
-            }
+            $this->lockCampaign();
+            $this->requireUnusedCampaign();
             $existing = WebsiteGraphTestAuthorization::query()->whereKey($id)->lockForUpdate()->first();
             if ($existing) {
                 abort_unless($existing->authorized_by === $actor->id, 403);
@@ -31,10 +31,13 @@ final class GraphTechnicalTest
     public function execute(User $actor, string $id): string
     {
         abort_unless($actor->can('manage-admin'), 403);
+        $this->requireEnabled();
         if (config('contact-mail.transport') !== 'graph') {
             throw ValidationException::withMessages(['test' => 'El transporte Graph no está configurado.']);
         }
         $item = DB::transaction(function () use ($actor, $id) {
+            $this->lockCampaign();
+            $this->requireUnusedCampaign();
             $item = WebsiteGraphTestAuthorization::query()->whereKey($id)->lockForUpdate()->firstOrFail();
             if ($item->status !== 'authorized') {
                 throw ValidationException::withMessages(['test' => 'Esta autorización ya se ha utilizado o su resultado es incierto.']);
@@ -73,6 +76,27 @@ final class GraphTechnicalTest
             $item->update(['receipt_confirmed_at' => now(), 'receipt_confirmed_by' => $actor->id]);
             $this->audit($item, $actor, 'graph_test_receipt_confirmed');
         });
+    }
+
+    private function requireEnabled(): void
+    {
+        if (config('contact-mail.graph_test_enabled') !== true) {
+            throw ValidationException::withMessages(['test' => 'La prueba técnica está desactivada.']);
+        }
+    }
+
+    private function lockCampaign(): void
+    {
+        if (DB::getDriverName() === 'pgsql') {
+            DB::select("SELECT pg_advisory_xact_lock(hashtextextended('graph-technical-test:initial-campaign', 0))");
+        }
+    }
+
+    private function requireUnusedCampaign(): void
+    {
+        if (WebsiteGraphTestAuthorization::query()->whereNotNull('attempted_at')->exists()) {
+            throw ValidationException::withMessages(['test' => 'El único intento de esta campaña ya se ha consumido.']);
+        }
     }
 
     private function audit(WebsiteGraphTestAuthorization $item, User $actor, string $event): void
