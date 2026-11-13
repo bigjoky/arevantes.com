@@ -29,6 +29,7 @@ final class HistoricalInvoiceController extends Controller
     public function index(Request $request): Response
     {
         $this->authorizeAccess($request);
+        $selectedYear = (int) $request->attributes->get('selected_fiscal_year', now()->year);
         $rows = DB::table('historical_invoice_rows')->orderByDesc('id')->limit(100)->get()->map(fn ($row) => [
             'id' => $row->id, 'batch_id' => $row->batch_id, 'status' => $row->status,
             'document' => json_decode($row->document, true), 'errors' => json_decode($row->errors, true),
@@ -36,7 +37,7 @@ final class HistoricalInvoiceController extends Controller
             'created_at' => $row->created_at, 'accounting_date' => $row->accounting_date,
         ]);
 
-        return Inertia::render('billing/historical-invoices', ['rows' => $rows,
+        return Inertia::render('billing/historical-invoices', ['selectedYear' => $selectedYear, 'rows' => $rows,
             'suppliers' => Supplier::where('is_active', true)->orderBy('legal_name')->get(['id', 'legal_name', 'tax_id']),
             'categories' => ExpenseCategory::orderBy('name')->get(['id', 'name'])]);
     }
@@ -44,9 +45,10 @@ final class HistoricalInvoiceController extends Controller
     public function save(Request $request, ?int $id = null): RedirectResponse
     {
         $this->authorizeAccess($request);
+        $this->requireYear2026($request);
         $data = $request->validate([
             'supplier_id' => ['required', 'integer', 'exists:suppliers,id'], 'supplier_tax_id' => ['required', 'string', 'max:32'], 'expense_category_id' => ['required', 'integer', 'exists:expense_categories,id'],
-            'supplier_number' => ['required', 'string', 'max:255'], 'issue_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:2026-01-01', 'before_or_equal:2026-11-10'],
+            'supplier_number' => ['required', 'string', 'max:255'], 'issue_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:2026-01-01', 'before_or_equal:2026-12-31', 'before_or_equal:today'],
             'operation_date' => ['nullable', 'date_format:Y-m-d'], 'received_date' => ['nullable', 'date_format:Y-m-d'], 'due_date' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:issue_date'],
             'taxable_base' => ['required', 'numeric', 'decimal:0,2', 'min:0'], 'vat_rate' => ['required', 'numeric', 'between:0,100'],
             'vat_amount' => ['required', 'numeric', 'decimal:0,2', 'min:0'], 'total' => ['required', 'numeric', 'decimal:0,2', 'min:0'],
@@ -99,6 +101,7 @@ final class HistoricalInvoiceController extends Controller
     public function import(Request $request, CsvReader $reader, StageInvoices $staging): RedirectResponse
     {
         $this->authorizeAccess($request);
+        $this->requireYear2026($request);
         $request->validate(['csv' => ['required', 'file', 'max:1024', 'extensions:csv,txt']]);
         try {
             $rows = $reader->read($request->file('csv')->getRealPath());
@@ -120,9 +123,20 @@ final class HistoricalInvoiceController extends Controller
     public function confirm(Request $request, int $id, ConfirmInvoice $service): RedirectResponse
     {
         $this->authorizeAccess($request);
-        $data = $request->validate(['accounting_date' => ['required', 'date_format:Y-m-d']]);
+        $this->requireYear2026($request);
+        $data = $request->validate(['accounting_date' => ['required', 'date_format:Y-m-d'], 'confirm_other_year' => ['sometimes', 'boolean']]);
+        if (substr($data['accounting_date'], 0, 4) !== '2026' && ! ($data['confirm_other_year'] ?? false)) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['accounting_date' => 'La fecha contable pertenece a otro ejercicio. Confirma expresamente antes de continuar.']);
+        }
         $expense = $service->confirm($id, $request->user(), $data['accounting_date']);
 
         return redirect('/billing/suppliers/expense/'.$expense->id);
+    }
+
+    private function requireYear2026(Request $request): void
+    {
+        if ((int) $request->attributes->get('selected_fiscal_year', now()->year) !== 2026) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['year' => 'La regularización histórica está disponible únicamente para el ejercicio 2026.']);
+        }
     }
 }

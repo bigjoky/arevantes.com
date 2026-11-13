@@ -451,6 +451,19 @@ class ExpenseController extends Controller
 
                     return;
                 }
+                // A new form key must not silently create the same historical payment twice.
+                if ($lockedExpense && \Illuminate\Support\Facades\Schema::hasTable('historical_invoice_rows')
+                    && DB::table('historical_invoice_rows')->where('expense_id', $lockedExpense->id)->exists()) {
+                    $duplicate = SupplierPayment::where('expense_id', $lockedExpense->id)
+                        ->whereDate('paid_at', $data['paid_at'])->where('amount', $data['amount'])
+                        ->where('method', $data['method'])->where('funding_source_type', $data['funding_source_type'])
+                        ->where('funding_source_id', $data['funding_source_id'])
+                        ->whereRaw('trim(coalesce(reference, ?)) = ?', ['', trim($data['reference'] ?? '')])->exists();
+                    if ($duplicate) {
+                        throw ValidationException::withMessages(['reference' => 'Ya existe un pago con los mismos datos. Revísalo antes de registrar otro.']);
+                    }
+                }
+
                 abort_if($lockedInvoice?->matching_status === 'review_required', 422, __('Approve invoice variances before registering a payment.'));
 
                 $payable = $lockedInvoice ?? $lockedExpense;

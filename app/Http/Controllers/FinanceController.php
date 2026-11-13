@@ -916,7 +916,7 @@ class FinanceController extends Controller
     {
         $validated = $request->validate(['year' => ['nullable', 'integer', 'between:2020,2100']]);
 
-        return (int) ($validated['year'] ?? now()->year);
+        return (int) ($validated['year'] ?? $request->attributes->get('selected_fiscal_year', now()->year));
     }
 
     /** @param Collection<int, FinancialForecastItem> $items */

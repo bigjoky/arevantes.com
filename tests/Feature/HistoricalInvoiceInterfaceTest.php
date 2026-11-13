@@ -89,4 +89,47 @@ class HistoricalInvoiceInterfaceTest extends TestCase
         $this->assertSame([], json_decode(DB::table('historical_invoice_rows')->where('id', $rows[1]->id)->value('errors'), true));
         $this->assertDatabaseCount('expenses', 0);
     }
+    public function test_historical_payment_uses_treasury_dates_and_blocks_repeated_or_closed_period_payments(): void
+    {
+        config(['fiscal.historical_invoice_2026' => true]);
+        $user = $this->actor();
+        $supplier = EconomicFixture::supplier(['legal_name' => 'Payment supplier', 'tax_id' => 'B12345678', 'country' => 'ES', 'is_active' => true]);
+        $data = ['supplier_id' => $supplier->id, 'supplier_tax_id' => 'B12345678', 'expense_category_id' => ExpenseCategory::firstOrFail()->id,
+            'supplier_number' => 'PAY-HIST-1', 'issue_date' => '2026-01-15', 'taxable_base' => '100', 'vat_rate' => '21',
+            'vat_amount' => '21', 'withholding_rate' => '0', 'withholding_amount' => '0', 'total' => '121'];
+        $this->actingAs($user)->post('/billing/historical-invoices', $data)->assertSessionHasNoErrors();
+        $row = DB::table('historical_invoice_rows')->first();
+        $this->post('/billing/historical-invoices/'.$row->id.'/confirm', ['accounting_date' => '2026-03-15'])->assertSessionHasNoErrors();
+        $expense = Expense::firstOrFail();
+        $payment = ['idempotency_key' => (string) \Illuminate\Support\Str::uuid(), 'paid_at' => '2026-03-20', 'amount' => '20.00',
+            'method' => 'cash', 'funding_source_type' => 'ledger_account', 'funding_source_id' => \App\Models\LedgerAccount::where('code', '570')->firstOrFail()->id,
+            'reference' => 'RECIBO-PRUEBA'];
+        $url = route('expenses.payments.store', $expense);
+        $this->post($url, $payment)->assertSessionHasNoErrors();
+        $this->post($url, $payment)->assertSessionHasNoErrors();
+        $this->post($url, [...$payment, 'idempotency_key' => (string) \Illuminate\Support\Str::uuid()])->assertSessionHasErrors('reference');
+        $this->assertSame(1, $expense->payments()->count());
+        $this->assertSame('2026-03-20', $expense->payments()->firstOrFail()->accountingEntry->entry_date->toDateString());
+        \App\Models\AccountingPeriod::updateOrCreate(['year' => 2026, 'month' => 4], ['fiscal_year_id' => \App\Models\FiscalYear::where('year', 2026)->firstOrFail()->id, 'status' => 'closed']);
+        $this->post($url, [...$payment, 'paid_at' => '2026-04-20', 'idempotency_key' => (string) \Illuminate\Support\Str::uuid()])->assertSessionHasErrors();
+        $this->assertSame(1, $expense->payments()->count());
+    }
+
+    public function test_2026_documents_after_old_cutoff_can_be_prepared(): void
+    {
+        $this->travelTo(\Illuminate\Support\Carbon::parse('2026-12-20'));
+        config(['fiscal.historical_invoice_2026' => true]);
+        $user = $this->actor();
+        $supplier = EconomicFixture::supplier(['legal_name' => 'December supplier', 'tax_id' => 'B12345678', 'country' => 'ES', 'is_active' => true]);
+        $data = ['supplier_id' => $supplier->id, 'supplier_tax_id' => 'B12345678', 'expense_category_id' => ExpenseCategory::firstOrFail()->id,
+            'supplier_number' => 'DEC-1', 'issue_date' => '2026-12-15', 'taxable_base' => '100', 'vat_rate' => '21',
+            'vat_amount' => '21', 'withholding_rate' => '0', 'withholding_amount' => '0', 'total' => '121'];
+        $this->actingAs($user)->post('/billing/historical-invoices', $data)->assertSessionHasNoErrors();
+        $this->assertDatabaseCount('historical_invoice_rows', 1);
+        $this->assertDatabaseCount('expenses', 0);
+        $row = DB::table('historical_invoice_rows')->first();
+        $this->post('/billing/historical-invoices/'.$row->id.'/confirm', ['accounting_date' => '2026-12-16'])->assertSessionHasNoErrors();
+        $this->assertSame('2026-12-15', Expense::firstOrFail()->expense_date->toDateString());
+    }
+
 }

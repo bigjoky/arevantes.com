@@ -50,8 +50,9 @@ class BillingWorkspaceController extends Controller
         abort_unless(Gate::any(['manage-installations', 'view-finance']), 403);
         $caps = $this->capabilities();
         $context = $this->context($request);
-        $customer = $workspace->invoices('customers');
-        $supplier = $workspace->invoices('suppliers');
+        $cutoff = $context['year'] < today()->year ? $context['to'] : null;
+        $customer = $workspace->invoices('customers', $cutoff);
+        $supplier = $workspace->invoices('suppliers', $cutoff);
         $issued = (clone $customer)->where('status', '<>', 'draft')->whereBetween('issue_date', [$context['from'], $context['to']]);
         $receipts = $workspace->payments($caps['customers'] && $caps['payments'], $caps['suppliers'] && $caps['payments'])->whereBetween('paid_at', [$context['from'], $context['to']]);
         $pendingCustomers = (clone $customer)->where('balance', '>', 0);
@@ -110,7 +111,11 @@ class BillingWorkspaceController extends Controller
     private function listing(Request $request, BillingWorkspace $workspace, string $side): Response
     {
         $filters = $request->validate(['search' => 'nullable|string|max:100', 'type' => 'nullable|in:invoice,credit_note', 'status' => 'nullable|in:draft,issued,partial,paid,overdue', 'state' => 'nullable|in:draft,issued,paid,partial,pending,overdue,credit_note,cancelled', 'party' => 'nullable|integer|min:1', 'from' => 'nullable|date', 'to' => 'nullable|date|after_or_equal:from', 'due_from' => 'nullable|date', 'due_to' => 'nullable|date|after_or_equal:due_from', 'sort' => 'nullable|in:issue_date,due_date,number,amount,party', 'direction' => 'nullable|in:asc,desc', 'per_page' => 'nullable|integer|in:10,15,25,50', 'page' => 'nullable|integer|min:1']);
-        $query = $workspace->invoices($side);
+        $selectedYear = (int) $request->attributes->get('selected_fiscal_year', now()->year);
+        $fiscalYear = FiscalYear::where('year', $selectedYear)->first();
+        $cutoff = $selectedYear < today()->year ? ($fiscalYear?->ends_on?->toDateString() ?? $selectedYear.'-12-31') : null;
+        $query = $workspace->invoices($side, $cutoff);
+        $query->whereYear('issue_date', $selectedYear);
         if ($side === 'customers' && $request->filled('type')) {
             $query->where('type', $request->input('type'));
         }
@@ -152,6 +157,7 @@ class BillingWorkspaceController extends Controller
         $filters = $request->validate(['search' => 'nullable|string|max:100', 'kind' => 'nullable|in:receipt,payment', 'tab' => 'nullable|in:movements,pending,due', 'from' => 'nullable|date', 'to' => 'nullable|date|after_or_equal:from', 'page' => 'nullable|integer|min:1']);
         $caps = $this->capabilities();
         $q = $workspace->payments($caps['customers'], true);
+        $q->whereYear('paid_at', (int) $request->attributes->get('selected_fiscal_year', now()->year));
         if ($request->filled('search')) {
             $term = '%'.$request->input('search').'%';
             $q->where(fn ($q) => $q->where('number', 'like', $term)->orWhere('party', 'like', $term)->orWhere('reference', 'like', $term));
@@ -168,9 +174,12 @@ class BillingWorkspaceController extends Controller
         $movements = $q->orderByDesc('paid_at')->orderBy('kind')->orderByDesc('id')->paginate(10)->withQueryString()->through(fn ($r) => $workspace->movement($r));
         $pending = null;
         if ($request->input('tab', 'movements') !== 'movements') {
-            $source = $workspace->invoices('suppliers');
+            $year = (int) $request->attributes->get('selected_fiscal_year', now()->year);
+            $end = FiscalYear::where('year', $year)->first()?->ends_on?->toDateString() ?? $year.'-12-31';
+            $cutoff = $year < today()->year ? $end : null;
+            $source = $workspace->invoices('suppliers', $cutoff);
             if ($caps['customers']) {
-                $source->unionAll($workspace->invoices('customers'));
+                $source->unionAll($workspace->invoices('customers', $cutoff));
             }
             $due = DB::query()->fromSub($source, 'pending_documents')->where('balance', '>', 0);
             if ($request->input('tab') === 'due') {

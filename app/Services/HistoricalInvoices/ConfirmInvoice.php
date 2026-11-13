@@ -47,7 +47,7 @@ final class ConfirmInvoice
                 'expense_category_id' => ['required', 'integer', 'exists:expense_categories,id'],
                 'supplier_tax_id' => ['required', 'string', 'max:32'],
                 'supplier_number' => ['required', 'string', 'max:255'],
-                'issue_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:2026-01-01', 'before_or_equal:2026-11-10'],
+                'issue_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:2026-01-01', 'before_or_equal:2026-12-31', 'before_or_equal:today'],
                 'operation_date' => ['nullable', 'date_format:Y-m-d'],
                 'received_date' => ['nullable', 'date_format:Y-m-d'],
                 'due_date' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:issue_date'],

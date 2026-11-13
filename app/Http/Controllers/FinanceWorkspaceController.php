@@ -22,7 +22,8 @@ class FinanceWorkspaceController extends Controller
     {
         abort_unless(Gate::allows('view-finance'), 403);
         $filters = $request->validate(['area' => 'nullable|in:treasury,forecasts', 'tab' => 'nullable|in:movements,position,categories,analysis,overview,detail,scenarios', 'month' => 'nullable|date_format:Y-m', 'account' => 'nullable|integer|exists:bank_accounts,id', 'months' => 'nullable|integer|in:3,6,12', 'horizon' => 'nullable|integer|in:7,30,60,90', 'scenario' => 'nullable|in:probable,conservative,optimistic', 'search' => 'nullable|string|max:100', 'type' => 'nullable|in:in,out', 'source' => 'nullable|in:bank,unmatched', 'from' => 'nullable|date', 'to' => 'nullable|date|after_or_equal:from', 'sort' => 'nullable|in:date,amount,description,account', 'direction' => 'nullable|in:asc,desc', 'page' => 'nullable|integer|min:1', 'due_page' => 'nullable|integer|min:1', 'manual_page' => 'nullable|integer|min:1']);
-        $month = CarbonImmutable::parse(($filters['month'] ?? today()->format('Y-m')).'-01');
+        $selectedYear = (int) $request->attributes->get('selected_fiscal_year', today()->year);
+        $month = CarbonImmutable::parse(($filters['month'] ?? sprintf('%04d-%02d', $selectedYear, today()->month)).'-01');
         $account = $request->integer('account') ?: null;
         $accounts = $workspace->accounts($account);
         $opening = collect($accounts)->where('is_active', true)->where('currency', 'EUR')->reduce(fn ($sum, $a) => $sum->plus($a['balance']), BigDecimal::zero());

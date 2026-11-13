@@ -112,7 +112,7 @@ class HandleInertiaRequests extends Middleware
             ],
             'workspaceContext' => fn () => $sharesWorkspace ? [
                 'companyName' => CompanyProfile::value('legal_name') ?: config('company.legal_name'),
-                'currentYear' => now()->year,
+                'currentYear' => (int) $request->attributes->get('selected_fiscal_year', now()->year),
             ] : null,
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
