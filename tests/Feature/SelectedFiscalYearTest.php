@@ -79,4 +79,18 @@ class SelectedFiscalYearTest extends TestCase
         $this->assertStringNotContainsString('Confirma expresamente', session('errors')->first('expense_date'));
     }
 
+    public function test_customer_invoice_balances_are_calculated_at_historical_year_end(): void
+    {
+        $this->travelTo(\Illuminate\Support\Carbon::parse('2028-01-02'));
+        $user = User::factory()->create(['role' => 'admin']);
+        foreach ([[2025, 2026], [2026, 2027]] as [$invoiceYear, $paymentYear]) {
+            $invoice = \App\Models\SalesDocument::create(['number' => 'SALE-CROSS-'.$invoiceYear, 'type' => 'invoice', 'status' => 'paid',
+                'issue_date' => $invoiceYear.'-12-15', 'customer_snapshot' => ['company_name' => 'Synthetic'], 'subtotal' => 100,
+                'tax_amount' => 21, 'amount' => 121, 'paid_amount' => 121, 'locked_at' => now()]);
+            $invoice->payments()->create(['paid_at' => $paymentYear.'-01-15', 'amount' => '121', 'method' => 'cash']);
+        }
+        $this->actingAs($user)->get('/sales?year=2025')->assertOk()->assertInertia(fn (Assert $page) => $page->where('invoices.total', 1)->where('invoices.data.0.number', 'SALE-CROSS-2025')->where('invoices.data.0.balance', '121.00'));
+        $this->get('/sales?year=2026')->assertOk()->assertInertia(fn (Assert $page) => $page->where('invoices.total', 1)->where('invoices.data.0.number', 'SALE-CROSS-2026')->where('invoices.data.0.balance', '121.00'));
+    }
+
 }
