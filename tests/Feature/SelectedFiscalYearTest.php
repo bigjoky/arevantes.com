@@ -73,6 +73,7 @@ class SelectedFiscalYearTest extends TestCase
             $this->assertTrue(session()->has('errors'), 'No se bloqueó '.$url.' (HTTP '.$response->getStatusCode().').');
             $response->assertSessionHasErrors($field);
         }
+        $this->post('/expenses', ['expense_date' => '2025-12-15T12:00:00Z'])->assertSessionHasErrors('expense_date');
         // Confirmation removes this guard; normal endpoint validation still applies.
         $response = $this->post('/expenses', ['expense_date' => '2025-12-15', 'confirm_other_year' => true]);
         $response->assertSessionHasErrors('expense_category_id');

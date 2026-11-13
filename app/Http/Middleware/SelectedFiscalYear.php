@@ -28,9 +28,16 @@ class SelectedFiscalYear
         };
         if (! $request->isMethod('GET') && $field && $request->filled($field)) {
             $date = $request->input($field);
-            if (is_string($date) && preg_match('/^(\d{4})-\d{2}-\d{2}$/', $date, $matches)
-                && (int) $matches[1] !== $year && ! $request->boolean('confirm_other_year')) {
-                throw \Illuminate\Validation\ValidationException::withMessages([$field => "La fecha pertenece a {$matches[1]} y el ejercicio seleccionado es {$year}. Confirma expresamente antes de continuar."]);
+            $operationYear = null;
+            if (is_string($date)) {
+                try {
+                    $operationYear = \Carbon\CarbonImmutable::parse($date)->year;
+                } catch (\Throwable) {
+                    // The operation's own validator reports invalid dates.
+                }
+            }
+            if ($operationYear !== null && $operationYear !== $year && ! $request->boolean('confirm_other_year')) {
+                throw \Illuminate\Validation\ValidationException::withMessages([$field => "La fecha pertenece a {$operationYear} y el ejercicio seleccionado es {$year}. Confirma expresamente antes de continuar."]);
             }
         }
         if ($request->isMethod('GET') && ! $request->query->has('year')
