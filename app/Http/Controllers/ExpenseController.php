@@ -15,8 +15,8 @@ use App\Rules\SafeUpload;
 use App\Services\Accounting\AccountingOperationInput;
 use App\Services\Accounting\AccountingSynchronizer;
 use App\Services\Accounting\ExpenseCorrection;
-use App\Services\Accounting\ExpenseCreditorRegistry;
 use App\Services\Accounting\ExpensePaymentCancellation;
+use App\Services\Accounting\ExpenseRegistration;
 use App\Services\Accounting\SupplierPaymentSourceResolver;
 use App\Services\Billing\BillingWorkspace;
 use App\Services\Documents\DocumentNumber;
@@ -30,7 +30,6 @@ use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -304,23 +303,7 @@ class ExpenseController extends Controller
                 $storedFiles[] = ['original_name' => $file->getClientOriginalName(), 'path' => $path, 'mime_type' => $file->getMimeType() ?: 'application/octet-stream', 'size' => $file->getSize()];
             }
 
-            $expense = DB::transaction(function () use ($request, $data, $taxLines, $storedFiles, $accounting, $numbers) {
-                if (in_array($data['type'], ['invoice', 'simplified_invoice'], true)) {
-                    app(ReceivedInvoiceIdentity::class)->lockInput($data['issuer_country'] ?? 'ES', $data['issuer_tax_id'] ?? null, 'invoice', $data['document_number'] ?? '');
-                }
-                $data = app(ExpenseCreditorRegistry::class)->newInvoice($data, true);
-                $accountingDecision = Arr::pull($data, '_accounting_control_decision');
-                $number = $numbers->next('expense', $data['expense_date'])['number'];
-                $amount = $data['tax_calculation_snapshot']['result']['totals']['total'] ?? round((float) $data['subtotal'] + (float) $data['tax_amount'] - (float) $data['withholding_amount'], 2);
-                $expense = Expense::create([...$data, 'created_by' => $request->user()->id, 'number' => $number, 'amount' => $amount, 'status' => 'pending']);
-                $expense->taxLines()->createMany($taxLines->all());
-                foreach ($storedFiles as $storedFile) {
-                    $expense->attachments()->create([...$storedFile, 'uploaded_by' => $request->user()->id]);
-                }
-                $accounting->syncExpense($expense, $request->user()->id, $accountingDecision);
-
-                return $expense;
-            });
+            $expense = app(ExpenseRegistration::class)->register($data, $taxLines->all(), $storedFiles, $request->user()->id);
         } catch (Throwable $exception) {
             Storage::disk(config('filesystems.private'))->delete(array_column($storedFiles, 'path'));
 

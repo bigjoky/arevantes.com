@@ -80,24 +80,25 @@ class VatSettlement
         if (TaxReturn::where(['tax_type' => 'vat', 'year' => $year, 'quarter' => $quarter])->exists()) {
             throw ValidationException::withMessages(['quarter' => __('This VAT period has already been prepared.')]);
         }
-        $data = $this->report->make($year, $quarter);
-        if (! $data['accountingCheck']['matches']) {
-            throw ValidationException::withMessages(['quarter' => __('Resolve VAT differences between documents and accounting before preparing the return.')]);
-        }
-        $output = (float) $data['summary']['outputVat'];
-        $input = (float) $data['summary']['deductibleVat'];
-        $result = round($output - $input, 2);
-        if ($output === 0.0 && $input === 0.0) {
-            throw ValidationException::withMessages(['quarter' => __('There are no VAT movements in this period.')]);
-        }
-        $this->assertReady($this->preview($data), 'quarter');
-
-        return DB::transaction(function () use ($year, $quarter, $userId, $data, $output, $input, $result) {
+        return DB::transaction(function () use ($year, $quarter, $userId) {
             // Serialize creation with other settlements and accounting posting in the year.
             FiscalYear::where('year', $year)->lockForUpdate()->firstOrFail();
             if (TaxReturn::where(['tax_type' => 'vat', 'year' => $year, 'quarter' => $quarter])->exists()) {
                 throw ValidationException::withMessages(['quarter' => __('This VAT period has already been prepared.')]);
             }
+            // Build the snapshot only after acquiring the posting lock: otherwise
+            // a confirmation could commit between the report and draft creation.
+            $data = $this->report->make($year, $quarter);
+            if (! $data['accountingCheck']['matches']) {
+                throw ValidationException::withMessages(['quarter' => __('Resolve VAT differences between documents and accounting before preparing the return.')]);
+            }
+            $output = (float) $data['summary']['outputVat'];
+            $input = (float) $data['summary']['deductibleVat'];
+            $result = round($output - $input, 2);
+            if ($output === 0.0 && $input === 0.0) {
+                throw ValidationException::withMessages(['quarter' => __('There are no VAT movements in this period.')]);
+            }
+            $this->assertReady($this->preview($data), 'quarter');
             $option = $result > 0 ? 'payable' : ($result < 0 ? 'compensate' : 'none');
             $return = TaxReturn::create(['tax_type' => 'vat', 'year' => $year, 'quarter' => $quarter, 'period_from' => $data['period']['from'], 'period_to' => $data['period']['to'], 'status' => 'draft', 'settlement_status' => 'unposted', 'output_vat' => $output, 'input_vat' => $input, 'result' => $result, 'result_option' => $option, 'snapshot' => $this->evidence($data), 'prepared_by' => $userId, 'prepared_at' => now()]);
 
@@ -149,10 +150,14 @@ class VatSettlement
     public function post(TaxReturn $return, int $userId): TaxReturn
     {
         return DB::transaction(function () use ($return, $userId) {
+            // All paths that post received invoices acquire the fiscal-year lock first.
+            // The return cannot be locked first: confirmation holds this year while
+            // checking protected returns, which would invert the lock order.
+            $expectedYear = $return->year;
+            FiscalYear::where('year', $expectedYear)->lockForUpdate()->firstOrFail();
             $return = TaxReturn::lockForUpdate()->findOrFail($return->id);
+            abort_unless($return->year === $expectedYear, 409);
             abort_unless($return->tax_type === 'vat' && $return->status === 'approved' && ! $return->journal_entry_id, 422);
-            // JournalPoster uses the same year lock; keep the check and posting together.
-            FiscalYear::where('year', $return->year)->lockForUpdate()->firstOrFail();
             $evidence = $this->evidence($this->report->make($return->year, $return->quarter));
             $this->assertReady($evidence['entry'], 'review');
             if (($return->snapshot['fingerprint'] ?? null) !== $evidence['fingerprint']) {

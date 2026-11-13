@@ -143,7 +143,7 @@ class BillingWorkspaceController extends Controller
         }
         $invoices = $query->orderBy($request->input('sort', 'issue_date'), $request->input('direction', 'desc'))->orderBy('kind')->orderByDesc('id')->paginate($request->integer('per_page', 10))->withQueryString()->through(fn ($r) => $workspace->invoice($r));
 
-        return Inertia::render('billing/invoices', ['side' => $side, 'filters' => $filters, 'invoices' => $invoices, 'parties' => $workspace->invoices($side)->whereNotNull('party_id')->select('party_id', 'party')->distinct()->orderBy('party')->get(), 'capabilities' => $this->capabilities()]);
+        return Inertia::render('billing/invoices', ['side' => $side, 'filters' => $filters, 'invoices' => $invoices, 'parties' => $workspace->invoices($side)->whereNotNull('party_id')->select('party_id', 'party')->distinct()->orderBy('party')->get(), 'capabilities' => $this->capabilities(), 'historicalAvailable' => $side === 'suppliers' && app(\App\Services\HistoricalInvoices\Access::class)->allows($request->user())]);
     }
 
     public function payments(Request $request, BillingWorkspace $workspace): Response

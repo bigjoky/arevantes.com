@@ -37,6 +37,20 @@ class FiscalYearClosing
         $this->synchronizer->sync($userId);
 
         DB::transaction(function () use ($year, $userId) {
+            // Recheck after taking the same lock used by JournalPoster and monthly
+            // closure; balances must include everything committed before this lock.
+            $year = FiscalYear::lockForUpdate()->findOrFail($year->id);
+            if ($year->status !== 'open') {
+                throw ValidationException::withMessages(['year' => __('The fiscal year is already closed.')]);
+            }
+            $closedMonths = AccountingPeriod::where('fiscal_year_id', $year->id)->where('status', 'closed')->pluck('month')->map(fn ($month) => (int) $month);
+            $missingMonths = collect(range(1, 12))->diff($closedMonths)->values();
+            if ($missingMonths->isNotEmpty()) {
+                throw ValidationException::withMessages(['year' => __('Close all monthly accounting periods before the fiscal year. Missing months: :months.', ['months' => $missingMonths->implode(', ')])]);
+            }
+            if (JournalEntry::where('fiscal_year_id', $year->id)->where('status', 'draft')->exists()) {
+                throw ValidationException::withMessages(['year' => __('Resolve draft entries before closing the fiscal year.')]);
+            }
             $nominal = $this->balances($year, ['income', 'expense']);
             $lines = [];
             $resultDebit = $resultCredit = 0.0;
