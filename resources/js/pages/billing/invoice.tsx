@@ -220,8 +220,8 @@ function PaymentAction({
                     type="number"
                     step="0.01"
                     min="0.01"
-                    max={invoice.balance}
-                    defaultValue={invoice.balance}
+                    max={invoice.balance ?? undefined}
+                    defaultValue={invoice.balance ?? undefined}
                     required
                 />
             </label>
@@ -499,6 +499,7 @@ export default function InvoiceDetail({
                                             }
                                             action={`/sales/${invoice.id}/credit-note`}
                                         >
+                                            <input type="hidden" name="issue_date" value={new Date().toLocaleDateString('en-CA')} />
                                             <p>
                                                 La rectificativa se prepara como
                                                 borrador vinculado a esta

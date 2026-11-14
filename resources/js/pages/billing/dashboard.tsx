@@ -68,6 +68,7 @@ export default function BillingDashboard({
     customers,
     suppliers,
     movements,
+    balanceReviewRequired,
 }: {
     context: Context;
     capabilities: Capabilities;
@@ -84,6 +85,7 @@ export default function BillingDashboard({
     customers: Invoice[] | null;
     suppliers: Invoice[] | null;
     movements: Movement[] | null;
+    balanceReviewRequired: number;
 }) {
     const chart = series.map((r) => ({
         month: new Intl.DateTimeFormat('es-ES', { month: 'short' }).format(
@@ -154,6 +156,7 @@ export default function BillingDashboard({
                     </div>
                 }
             />
+            {balanceReviewRequired > 0 && <p role="status">Hay saldos históricos pendientes de revisión; los totales afectados no están disponibles.</p>}
             {!context.fiscalAvailable && (
                 <p role="status" className="billing-notice">
                     No hay un ejercicio fiscal configurado para este año. La

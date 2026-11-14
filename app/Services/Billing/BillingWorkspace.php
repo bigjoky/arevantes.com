@@ -19,10 +19,11 @@ class BillingWorkspace
         $party = "coalesce(nullif($jsonName, ''), nullif(trim(coalesce($first, '') || ' ' || coalesce($last, '')), ''), p.company_name, p.first_name, '')";
         $credits = "coalesce((select sum(c.amount) from sales_documents c where c.source_document_id = s.id and c.type = 'credit_note' and c.status <> 'draft'".($asOf ? " and c.issue_date <= ?" : '')."), 0)";
         $paid = $asOf ? "coalesce((select sum(p.amount) from sales_document_payments p where p.sales_document_id = s.id and p.paid_at <= ? and (p.voided_at is null or p.voided_at >= ?)), 0)" : 's.paid_amount';
+        $review = $asOf ? "case when s.status = 'cancelled' or abs(coalesce(s.paid_amount,0) - coalesce((select sum(p.amount) from sales_document_payments p where p.sales_document_id=s.id and p.voided_at is null),0)) > 0.009 or exists (select 1 from sales_documents c where c.source_document_id=s.id and c.type='credit_note' and c.status='cancelled') then 1 else 0 end" : '0';
         $nextDay = $asOf ? \Carbon\CarbonImmutable::parse($asOf)->addDay()->toDateString() : null;
 
         return DB::table('sales_documents as s')->leftJoin('people as p', 'p.id', '=', 's.person_id')->leftJoin('installations as i', 'i.id', '=', 's.installation_id')
-            ->whereIn('s.type', ['invoice', 'credit_note'])->selectRaw("s.id, 'customer' as kind, s.number, s.type, $party as party, $taxId as tax_id, s.person_id as party_id, i.project_reference as project, s.installation_id, s.issue_date, s.due_date, (s.subtotal - s.discount_amount) as base, s.tax_amount as tax, cast(null as numeric) as withholding, s.amount, $paid as paid, $credits as credits, s.status, s.locked_at, s.source_document_id", $asOf ? [$asOf, $nextDay, $asOf] : []);
+            ->whereIn('s.type', ['invoice', 'credit_note'])->selectRaw("s.id, 'customer' as kind, s.number, s.type, $party as party, $taxId as tax_id, s.person_id as party_id, i.project_reference as project, s.installation_id, s.issue_date, s.due_date, (s.subtotal - s.discount_amount) as base, s.tax_amount as tax, cast(null as numeric) as withholding, s.amount, $paid as paid, $credits as credits, $review as balance_review_required, s.status, s.locked_at, s.source_document_id", $asOf ? [$asOf, $nextDay, $asOf] : []);
     }
 
     public function suppliers(?string $asOf = null): Builder
@@ -33,10 +34,12 @@ class BillingWorkspace
         $nextDay = $asOf ? \Carbon\CarbonImmutable::parse($asOf)->addDay()->toDateString() : null;
         $paidPurchase = $asOf ? "coalesce((select sum(p.amount) from supplier_payments p where p.purchase_document_id = d.id and p.paid_at <= ? and (p.voided_at is null or p.voided_at >= ?)), 0)" : 'd.paid_amount';
         $paidExpense = $asOf ? "coalesce((select sum(p.amount) from supplier_payments p where p.expense_id = e.id and p.paid_at <= ? and (p.voided_at is null or p.voided_at >= ?)), 0)" : 'e.paid_amount';
+        $reviewPurchase = $asOf ? "case when d.status = 'cancelled' or abs(coalesce(d.paid_amount,0) - coalesce((select sum(p.amount) from supplier_payments p where p.purchase_document_id=d.id and p.voided_at is null),0)) > 0.009 or exists (select 1 from purchase_documents c where c.source_document_id=d.id and c.type='supplier_credit_note' and c.status='cancelled') then 1 else 0 end" : '0';
+        $reviewExpense = $asOf ? "case when e.status = 'cancelled' or abs(coalesce(e.paid_amount,0) - coalesce((select sum(p.amount) from supplier_payments p where p.expense_id=e.id and p.voided_at is null),0)) > 0.009 then 1 else 0 end" : '0';
         $purchases = DB::table('purchase_documents as d')->leftJoin('suppliers as p', 'p.id', '=', 'd.supplier_id')->leftJoin('installations as i', 'i.id', '=', 'd.installation_id')
-            ->whereIn('d.type', ['supplier_invoice', 'supplier_credit_note'])->selectRaw("d.id, 'purchase' as kind, d.number, d.type, coalesce($name, p.legal_name, '') as party, coalesce($taxId, p.tax_id) as tax_id, d.supplier_id as party_id, i.project_reference as project, d.installation_id, d.issue_date, d.due_date, d.subtotal as base, d.tax_amount as tax, cast(null as numeric) as withholding, d.amount, $paidPurchase as paid, $credits as credits, d.status, d.locked_at, d.source_document_id", $asOf ? [$asOf, $nextDay, $asOf] : []);
+            ->whereIn('d.type', ['supplier_invoice', 'supplier_credit_note'])->selectRaw("d.id, 'purchase' as kind, d.number, d.type, coalesce($name, p.legal_name, '') as party, coalesce($taxId, p.tax_id) as tax_id, d.supplier_id as party_id, i.project_reference as project, d.installation_id, d.issue_date, d.due_date, d.subtotal as base, d.tax_amount as tax, cast(null as numeric) as withholding, d.amount, $paidPurchase as paid, $credits as credits, $reviewPurchase as balance_review_required, d.status, d.locked_at, d.source_document_id", $asOf ? [$asOf, $nextDay, $asOf] : []);
         $expenses = DB::table('expenses as e')->leftJoin('suppliers as p', 'p.id', '=', 'e.supplier_id')->leftJoin('installations as i', 'i.id', '=', 'e.installation_id')
-            ->whereIn('e.type', ['invoice', 'simplified_invoice'])->where('e.currency_code', 'EUR')->selectRaw("e.id, 'expense' as kind, e.number, e.type, coalesce(e.issuer_legal_name, p.legal_name, e.merchant_name, '') as party, e.issuer_tax_id as tax_id, e.supplier_id as party_id, i.project_reference as project, e.installation_id, e.expense_date as issue_date, e.due_date, e.subtotal as base, e.tax_amount as tax, e.withholding_amount as withholding, e.amount, $paidExpense as paid, 0 as credits, e.status, null as locked_at, null as source_document_id", $asOf ? [$asOf, $nextDay] : []);
+            ->whereIn('e.type', ['invoice', 'simplified_invoice'])->where('e.currency_code', 'EUR')->selectRaw("e.id, 'expense' as kind, e.number, e.type, coalesce(e.issuer_legal_name, p.legal_name, e.merchant_name, '') as party, e.issuer_tax_id as tax_id, e.supplier_id as party_id, i.project_reference as project, e.installation_id, e.expense_date as issue_date, e.due_date, e.subtotal as base, e.tax_amount as tax, e.withholding_amount as withholding, e.amount, $paidExpense as paid, 0 as credits, $reviewExpense as balance_review_required, e.status, null as locked_at, null as source_document_id", $asOf ? [$asOf, $nextDay] : []);
 
         return DB::query()->fromSub($purchases->unionAll($expenses), 'supplier_records')->select('*');
     }
@@ -47,10 +50,10 @@ class BillingWorkspace
         if ($asOf) {
             $source->where('issue_date', '<=', $asOf);
         }
-        $balance = "case when type in ('credit_note', 'supplier_credit_note') or status in ('draft', 'cancelled') then 0 when amount - paid + credits > 0 then amount - paid + credits else 0 end";
+        $balance = "case when balance_review_required = 1 then null when type in ('credit_note', 'supplier_credit_note') or status in ('draft', 'cancelled') then 0 when amount - paid + credits > 0 then amount - paid + credits else 0 end";
         $balances = DB::query()->fromSub($source, 'documents')->selectRaw("*, $balance as balance");
 
-        $states = DB::query()->fromSub($balances, 'balances')->selectRaw("*, case when status = 'draft' then 'draft' when status = 'cancelled' then 'cancelled' when type in ('credit_note', 'supplier_credit_note') then 'credit_note' when balance <= 0 then 'paid' when due_date < ? then 'overdue' when paid > 0 then 'partial' else 'pending' end as payment_state", [$asOf ?? today()->toDateString()]);
+        $states = DB::query()->fromSub($balances, 'balances')->selectRaw("*, case when balance_review_required = 1 then 'review_required' when status = 'draft' then 'draft' when status = 'cancelled' then 'cancelled' when type in ('credit_note', 'supplier_credit_note') then 'credit_note' when balance <= 0 then 'paid' when due_date < ? then 'overdue' when paid > 0 then 'partial' else 'pending' end as payment_state", [$asOf ?? today()->toDateString()]);
 
         return DB::query()->fromSub($states, 'invoice_states')->select('*');
     }
@@ -78,8 +81,8 @@ class BillingWorkspace
 
     public function invoice(object $row): array
     {
-        return [...(array) $row, ...collect(['base', 'tax', 'amount', 'paid', 'credits', 'balance'])->mapWithKeys(fn ($key) => [$key => self::decimal($row->$key)])->all(),
-            'overpaid' => in_array($row->type, ['credit_note', 'supplier_credit_note']) || in_array($row->status, ['draft', 'cancelled']) ? '0.00' : (string) BigDecimal::max('0.00', BigDecimal::of((string) $row->paid)->minus((string) $row->amount)->minus((string) $row->credits))->toScale(2, RoundingMode::HalfUp),
+        return [...(array) $row, ...collect(['base', 'tax', 'amount', 'paid', 'credits', 'balance'])->mapWithKeys(fn ($key) => [$key => $key === 'balance' && $row->$key === null ? null : self::decimal($row->$key)])->all(),
+            'overpaid' => (int) $row->balance_review_required === 1 ? null : (in_array($row->type, ['credit_note', 'supplier_credit_note']) || in_array($row->status, ['draft', 'cancelled']) ? '0.00' : (string) BigDecimal::max('0.00', BigDecimal::of((string) $row->paid)->minus((string) $row->amount)->minus((string) $row->credits))->toScale(2, RoundingMode::HalfUp)),
             'withholding' => $row->withholding === null ? null : self::decimal($row->withholding),
             'document_state' => $row->kind === 'customer' ? ($row->status === 'draft' ? 'draft' : 'issued') : ($row->status === 'cancelled' ? 'cancelled' : 'received'),
             'href' => $row->kind === 'customer' ? '/sales/'.$row->id : '/billing/suppliers/'.$row->kind.'/'.$row->id,

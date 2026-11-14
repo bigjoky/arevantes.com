@@ -50,9 +50,10 @@ class FinanceWorkspace
         return DB::query()->fromSub($customers->unionAll($suppliers), 'unmatched_payments')->select('*');
     }
 
-    public function obligations(): Builder
+    public function obligations(?string $asOf = null): Builder
     {
-        return DB::query()->fromSub($this->billing->invoices('suppliers')->unionAll($this->billing->invoices('customers')), 'obligations')->where('balance', '>', 0);
+        return DB::query()->fromSub($this->billing->invoices('suppliers', $asOf)->unionAll($this->billing->invoices('customers', $asOf)), 'obligations')
+            ->where(fn ($query) => $query->where('balance', '>', 0)->orWhere('balance_review_required', 1));
     }
 
     public function totals(Builder $q): array
@@ -62,10 +63,11 @@ class FinanceWorkspace
         return ['in' => BillingWorkspace::decimal($r->incoming), 'out' => BillingWorkspace::decimal($r->outgoing), 'net' => BillingWorkspace::decimal($r->net)];
     }
 
-    public function series(int $months, ?int $account = null): array
+    public function series(int $months, ?int $account = null, ?string $asOf = null): array
     {
-        $start = today()->startOfMonth()->subMonths($months - 1);
-        $rows = $this->bankMovements($account, true)->whereDate('t.booked_on', '>=', $start->toDateString())->whereDate('t.booked_on', '<=', today()->toDateString())->select([])
+        $end = $asOf ? \Carbon\CarbonImmutable::parse($asOf) : today()->toImmutable();
+        $start = $end->startOfMonth()->subMonths($months - 1);
+        $rows = $this->bankMovements($account, true)->whereDate('t.booked_on', '>=', $start->toDateString())->whereDate('t.booked_on', '<=', $end->toDateString())->select([])
             ->selectRaw('substring(cast(t.booked_on as varchar),1,7) as month, sum(case when t.amount>0 then t.amount else 0 end) as incoming, sum(case when t.amount<0 then -t.amount else 0 end) as outgoing, sum(t.amount) as net')->groupByRaw('substring(cast(t.booked_on as varchar),1,7)')->get()->keyBy('month');
 
         return collect(range(0, $months - 1))->map(function ($offset) use ($start, $rows) {

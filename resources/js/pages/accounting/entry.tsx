@@ -458,6 +458,7 @@ export default function JournalEntry({
                                 >
                                     {({ errors, processing }) => (
                                         <>
+                                            <input type="hidden" name="entry_date" value={entry.entry_date} />
                                             <ConfirmSubmit
                                                 disabled={processing}
                                                 description="El asiento se contabilizará y afectará a los saldos."

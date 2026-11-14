@@ -26,6 +26,8 @@ declare module '@inertiajs/core' {
             workspaceContext: {
                 companyName: string | null;
                 currentYear: number;
+                fiscalStartsOn: string;
+                fiscalEndsOn: string;
             } | null;
             sidebarOpen: boolean;
             [key: string]: unknown;

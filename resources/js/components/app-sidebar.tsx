@@ -196,7 +196,7 @@ export function SidebarCompany() {
                                                     'year',
                                                     event.target.value,
                                                 );
-                                                ['from', 'to', 'due_from', 'due_to', 'page'].forEach((key) => url.searchParams.delete(key));
+                                                ['from', 'to', 'due_from', 'due_to', 'page', 'month'].forEach((key) => url.searchParams.delete(key));
                                                 router.get(
                                                     `${url.pathname}${url.search}${url.hash}`,
                                                 );

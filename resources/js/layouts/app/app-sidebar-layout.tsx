@@ -28,6 +28,8 @@ export default function AppSidebarLayout({
                 requestedYear <= 2100
               ? requestedYear
               : page.props.workspaceContext?.currentYear;
+    const fiscalStartsOn = page.props.workspaceContext?.fiscalStartsOn;
+    const fiscalEndsOn = page.props.workspaceContext?.fiscalEndsOn;
 
     useEffect(() => router.on('before', (event) => {
         const visit = event.detail.visit;
@@ -39,8 +41,8 @@ return;
         const path = visit.url.pathname;
         const field = /^(\/expenses|\/supplier-invoices|\/sales)\/\d+\/payments$/.test(path) ? 'paid_at'
             : /^\/expenses(?:\/\d+)?$/.test(path) ? 'expense_date'
-              : /^(\/purchases|\/sales)(?:\/\d+)?(?:\/invoice|\/issue)?$/.test(path) ? 'issue_date'
-                : /^\/accounting\/(?:entries|drafts)(?:\/\d+)?$/.test(path) ? 'entry_date' : null;
+              : /^(\/purchases|\/sales)(?:\/\d+)?(?:\/invoice|\/issue|\/dates|\/issued|\/credit-note)?$/.test(path) || /^\/supplier-invoices\/\d+\/credit-note$/.test(path) ? 'issue_date'
+                : /^\/accounting\/(?:entries|drafts)(?:\/\d+)?(?:\/post|\/reverse|\/corrections)?$/.test(path) ? 'entry_date' : null;
 
         if (!field) {
 return;
@@ -49,7 +51,8 @@ return;
         const data = visit.data;
         const value = data instanceof FormData ? data.get(field) : data[field];
 
-        if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value) || Number(value.slice(0, 4)) === year) {
+        if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)
+            || (fiscalStartsOn && fiscalEndsOn ? value >= fiscalStartsOn && value <= fiscalEndsOn : Number(value.slice(0, 4)) === year)) {
 return;
 }
 
@@ -62,7 +65,7 @@ data.set('confirm_other_year', '1');
 } else {
 data.confirm_other_year = true;
 }
-    }), [year]);
+    }), [year, fiscalStartsOn, fiscalEndsOn]);
 
     return (
         <ShellContext.Provider value={{ breadcrumbs, year }}>

@@ -55,6 +55,8 @@ class SelectedFiscalYearTest extends TestCase
             \App\Models\SupplierPayment::create(['expense_id' => $expense->id, 'paid_at' => $paymentYear.'-01-15', 'amount' => '121', 'method' => 'cash']);
         }
         $this->actingAs($user)->get('/billing/suppliers?year=2025')->assertOk()->assertInertia(fn (Assert $page) => $page->where('invoices.total', 1)->where('invoices.data.0.number', 'CROSS-2025')->where('invoices.data.0.balance', '121.00'));
+        $this->get('/finance?year=2025')->assertOk()->assertInertia(fn (Assert $page) => $page->where('historicalAsOf', '2025-12-31')->where('filters.month', '2025-12')->where('metrics.payable', '121.00')->where('metrics.registered', null));
+        $this->get('/finance?year=2026')->assertOk()->assertInertia(fn (Assert $page) => $page->where('historicalAsOf', '2026-12-31')->where('metrics.payable', '121.00'));
         $this->get('/billing/suppliers?year=2026')->assertOk()->assertInertia(fn (Assert $page) => $page->where('invoices.total', 1)->where('invoices.data.0.number', 'CROSS-2026')->where('invoices.data.0.balance', '121.00'));
         $this->get('/billing/payments?year=2026&tab=pending')->assertOk()->assertInertia(fn (Assert $page) => $page->where('pending.total', 1)->where('pending.data.0.number', 'CROSS-2026'));
         $this->get('/billing/payments?year=2026')->assertOk()->assertInertia(fn (Assert $page) => $page->where('movements.total', 1)->where('movements.data.0.number', 'CROSS-2025'));
@@ -92,6 +94,30 @@ class SelectedFiscalYearTest extends TestCase
         }
         $this->actingAs($user)->get('/sales?year=2025')->assertOk()->assertInertia(fn (Assert $page) => $page->where('invoices.total', 1)->where('invoices.data.0.number', 'SALE-CROSS-2025')->where('invoices.data.0.balance', '121.00'));
         $this->get('/sales?year=2026')->assertOk()->assertInertia(fn (Assert $page) => $page->where('invoices.total', 1)->where('invoices.data.0.number', 'SALE-CROSS-2026')->where('invoices.data.0.balance', '121.00'));
+    }
+
+    public function test_historical_balance_without_payment_trace_requires_review(): void
+    {
+        $this->travelTo(\Illuminate\Support\Carbon::parse('2028-01-02'));
+        $user = User::factory()->create(['role' => 'admin']);
+        EconomicFixture::expense(['expense_category_id' => ExpenseCategory::firstOrFail()->id, 'type' => 'invoice', 'number' => 'UNVERIFIED-2025',
+            'issuer_legal_name' => 'Synthetic supplier', 'expense_date' => '2025-01-15', 'currency_code' => 'EUR', 'subtotal' => '100',
+            'tax_amount' => '21', 'amount' => '121', 'paid_amount' => '20', 'status' => 'partial']);
+        $this->actingAs($user)->get('/billing/suppliers?year=2025')->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('invoices.total', 1)->where('invoices.data.0.payment_state', 'review_required')->where('invoices.data.0.balance', null));
+        $this->get('/finance?year=2025')->assertOk()->assertInertia(fn (Assert $page) => $page->where('balanceReviewRequired', 1)->where('metrics.payable', null));
+        $this->get('/billing/payments?year=2025&tab=pending')->assertOk()->assertInertia(fn (Assert $page) => $page->where('pending.total', 1)->where('pending.data.0.balance', null)->where('pending.data.0.payment_state', 'review_required'));
+        $this->get('/billing?year=2025&period=year')->assertOk()->assertInertia(fn (Assert $page) => $page->where('balanceReviewRequired', 1)->where('metrics.payable', null));
+    }
+
+    public function test_confirmation_uses_fiscal_year_boundaries_not_just_calendar_year(): void
+    {
+        $user = User::factory()->create(['role' => 'admin']);
+        \App\Models\FiscalYear::where('year', 2026)->update(['starts_on' => '2025-07-01', 'ends_on' => '2026-06-30']);
+        $this->actingAs($user)->get('/billing/suppliers?year=2026')->assertOk();
+        $this->post('/expenses', ['expense_date' => '2026-10-01'])->assertSessionHasErrors('expense_date');
+        $this->post('/expenses', ['expense_date' => '2025-12-01'])->assertSessionHasErrors('expense_category_id');
+        $this->assertStringNotContainsString('Confirma expresamente', session('errors')->first('expense_date'));
     }
 
 }
