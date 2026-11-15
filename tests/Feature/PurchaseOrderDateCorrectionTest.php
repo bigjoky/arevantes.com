@@ -77,7 +77,10 @@ class PurchaseOrderDateCorrectionTest extends TestCase
         $year = FiscalYear::create(['year' => 2025, 'starts_on' => '2025-01-01', 'ends_on' => '2025-12-31', 'status' => 'open']);
         $series = DocumentSeries::create(['document_type' => 'purchase_order', 'name' => 'Historical purchase orders', 'prefix' => 'PO', 'next_number' => 7, 'fiscal_year_id' => $year->id, 'fiscal_year' => 2025, 'is_active' => true]);
         $order = $this->order();
-        $this->actingAs(User::factory()->create(['role' => 'admin']))->patch(route('purchases.dates.update', $order), $this->payload(['issue_date' => '2025-05-10', 'expected_delivery_date' => null]))->assertSessionHasNoErrors();
+        $this->actingAs(User::factory()->create(['role' => 'admin']));
+        $target = $this->payload(['issue_date' => '2025-05-10', 'expected_delivery_date' => null]);
+        $this->patch(route('purchases.dates.update', $order), $target)->assertSessionHasErrors('issue_date');
+        $this->patch(route('purchases.dates.update', $order), [...$target, 'confirm_other_year' => true])->assertSessionHasNoErrors();
         $this->assertSame('PO-2025-00007', $order->fresh()->number);
         $this->assertSame($series->id, $order->fresh()->document_series_id);
         $this->assertSame('PO-2026-HISTORY', $order->events()->sole()->metadata['previous_number']);
@@ -88,7 +91,7 @@ class PurchaseOrderDateCorrectionTest extends TestCase
     {
         $order = $this->order();
         $this->actingAs(User::factory()->create(['role' => 'admin']));
-        $target = $this->payload(['issue_date' => '2025-05-10', 'expected_delivery_date' => null]);
+        $target = $this->payload(['issue_date' => '2025-05-10', 'expected_delivery_date' => null, 'confirm_other_year' => true]);
         $this->patch(route('purchases.dates.update', $order), $target)->assertSessionHasErrors('issue_date');
         $year = FiscalYear::create(['year' => 2025, 'starts_on' => '2025-01-01', 'ends_on' => '2025-12-31', 'status' => 'closed']);
         $this->patch(route('purchases.dates.update', $order), $target)->assertSessionHasErrors('issue_date');

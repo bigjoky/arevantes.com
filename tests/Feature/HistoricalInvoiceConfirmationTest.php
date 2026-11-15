@@ -40,7 +40,9 @@ class HistoricalInvoiceConfirmationTest extends TestCase
 
     public function test_historical_date_and_posting_date_are_separate_and_retry_is_idempotent(): void
     {
-        $this->assertSame('pgsql', DB::getDriverName(), 'This verification requires isolated PostgreSQL.');
+        if (DB::getDriverName() !== 'pgsql') {
+            $this->markTestSkipped('This verification requires isolated PostgreSQL.');
+        }
         [$user, $row] = $this->prepared();
         $stockBefore = DB::table('stock_movements')->count();
         $service = app(ConfirmInvoice::class);
