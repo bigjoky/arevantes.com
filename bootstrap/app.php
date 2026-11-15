@@ -6,6 +6,7 @@ use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\MeasureRequestPerformance;
 use App\Http\Middleware\SetLocale;
+use App\Http\Middleware\SelectedFiscalYear;
 use Illuminate\Database\QueryException;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Foundation\Application;
@@ -31,6 +32,7 @@ return Application::configure(basePath: dirname(__DIR__))
             AddSecurityHeaders::class,
             HandleAppearance::class,
             SetLocale::class,
+            SelectedFiscalYear::class,
             HandleInertiaRequests::class,
         ]);
         $middleware->api(append: [

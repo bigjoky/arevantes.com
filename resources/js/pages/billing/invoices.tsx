@@ -21,12 +21,14 @@ export default function Invoices({
     invoices,
     parties,
     capabilities,
+    historicalAvailable,
 }: {
     side: 'customers' | 'suppliers';
     filters: Filters;
     invoices: Page<Invoice>;
     parties: { party_id: number; party: string }[];
     capabilities: Capabilities;
+    historicalAvailable?: boolean;
 }) {
     const customer = side === 'customers';
     const path = customer ? '/sales' : '/billing/suppliers';
@@ -83,6 +85,7 @@ export default function Invoices({
                     )
                 }
             />
+            {historicalAvailable && <div className="mb-4"><Button variant="outline" asChild><Link href="/billing/historical-invoices">Regularización histórica 2026</Link></Button></div>}
             <Panel title="">
                 <QueryFilters path={path} filters={filters}>
                     <label>

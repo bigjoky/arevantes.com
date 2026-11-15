@@ -12,6 +12,7 @@ use App\Models\FinancialBudgetPeriod;
 use App\Models\FinancialBudgetVersion;
 use App\Models\FinancialCategory;
 use App\Models\FinancialForecastItem;
+use App\Models\FiscalYear;
 use App\Models\PaymentBatch;
 use App\Models\PaymentBatchItem;
 use App\Models\PurchaseDocument;
@@ -54,8 +55,15 @@ class FinanceController extends Controller
 
     public function index(Request $request, TreasuryForecast $forecast, ProjectProfitability $profitability, FinancialTaxonomyComparison $taxonomyComparison, PurchaseCommitmentAnalysis $commitmentAnalysis, ReceivableRiskAnalysis $receivableRiskAnalysis, SupplyScenarioPlanner $supplyScenarioPlanner): Response
     {
-        if ($request->input('view') !== 'manage' && (! $request->has('year') || $request->has('area')) && ! $request->has('planning_request')) {
+        $selectedYear = (int) $request->attributes->get('selected_fiscal_year', now()->year);
+        $end = FiscalYear::where('year', $selectedYear)->value('ends_on');
+        $historical = $end ? \Carbon\Carbon::parse($end)->endOfDay()->lt(now()) : $selectedYear < now()->year;
+        if ($request->input('view') !== 'manage' && (! $request->has('year') || $request->has('area') || $historical) && ! $request->has('planning_request')) {
             return app(FinanceWorkspaceController::class)->index($request, app(FinanceWorkspace::class), $forecast);
+        }
+
+        if ($historical) {
+            abort(422, 'Esta vista de gestión no ofrece saldos históricos verificados. Consulta los pendientes en Facturación.');
         }
 
         $year = $this->year($request);
@@ -916,7 +924,7 @@ class FinanceController extends Controller
     {
         $validated = $request->validate(['year' => ['nullable', 'integer', 'between:2020,2100']]);
 
-        return (int) ($validated['year'] ?? now()->year);
+        return (int) ($validated['year'] ?? $request->attributes->get('selected_fiscal_year', now()->year));
     }
 
     /** @param Collection<int, FinancialForecastItem> $items */

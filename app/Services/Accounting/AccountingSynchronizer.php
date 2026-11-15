@@ -66,9 +66,9 @@ class AccountingSynchronizer
         return $this->purchaseDocument($document, $userId);
     }
 
-    public function syncExpense(Expense $expense, ?int $userId = null, ?array $controlDecision = null): int
+    public function syncExpense(Expense $expense, ?int $userId = null, ?array $controlDecision = null, ?string $accountingDate = null): int
     {
-        return $this->expense($expense, $userId, $controlDecision);
+        return $this->expense($expense, $userId, $controlDecision, $accountingDate);
     }
 
     public function syncCustomerPayment(SalesDocumentPayment $payment, ?int $userId = null): int
@@ -179,9 +179,9 @@ class AccountingSynchronizer
         });
     }
 
-    private function expense(Expense $expense, ?int $userId, ?array $controlDecision = null): int
+    private function expense(Expense $expense, ?int $userId, ?array $controlDecision = null, ?string $accountingDate = null): int
     {
-        return DB::transaction(function () use ($expense, $userId, $controlDecision) {
+        return DB::transaction(function () use ($expense, $userId, $controlDecision, $accountingDate) {
             $expense = Expense::whereKey($expense->id)->lockForUpdate()->firstOrFail();
             if (JournalEntry::whereMorphedTo('source', $expense)->where('event', 'document')->exists()) {
                 return 0;
@@ -197,7 +197,7 @@ class AccountingSynchronizer
                 $this->decisions[] = $controlDecision;
             }
 
-            return $this->post($expense, 'document', $expense->expense_date->toDateString(), $expense->number, $userId, $lines);
+            return $this->post($expense, 'document', $accountingDate ?? $expense->expense_date->toDateString(), $expense->number, $userId, $lines);
         });
     }
 

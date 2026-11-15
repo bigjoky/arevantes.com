@@ -110,10 +110,14 @@ class HandleInertiaRequests extends Middleware
                     'url' => $notification->data['url'] ?? route('dashboard'),
                 ]) : [],
             ],
-            'workspaceContext' => fn () => $sharesWorkspace ? [
-                'companyName' => CompanyProfile::value('legal_name') ?: config('company.legal_name'),
-                'currentYear' => now()->year,
-            ] : null,
+            'workspaceContext' => function () use ($sharesWorkspace, $request) {
+                if (! $sharesWorkspace) return null;
+                $year = (int) $request->attributes->get('selected_fiscal_year', now()->year);
+                $fiscal = \App\Models\FiscalYear::where('year', $year)->first(['starts_on', 'ends_on']);
+                return ['companyName' => CompanyProfile::value('legal_name') ?: config('company.legal_name'), 'currentYear' => $year,
+                    'fiscalStartsOn' => $fiscal?->starts_on?->toDateString() ?? sprintf('%04d-01-01', $year),
+                    'fiscalEndsOn' => $fiscal?->ends_on?->toDateString() ?? sprintf('%04d-12-31', $year)];
+            },
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
     }

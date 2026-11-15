@@ -86,6 +86,8 @@ type Manual = {
     financial_category: { name: string } | null;
 };
 type Props = {
+    historicalAsOf: string | null;
+    balanceReviewRequired: number;
     cashCategories: {
         name: string;
         movements: number;
@@ -599,7 +601,9 @@ export default function FinanceWorkspace(p: Props) {
                     ))}
                 </nav>
             )}
-            {!area ? (
+            {p.balanceReviewRequired > 0 && <p role="status">Hay saldos pendientes de revisión; los totales afectados no están disponibles.</p>}
+            {p.historicalAsOf && <p>Consulta a {p.historicalAsOf}. El saldo bancario y las previsiones actuales no se presentan como históricos.</p>}
+            {p.historicalAsOf && area === 'forecasts' ? <p>Las previsiones históricas no están disponibles.</p> : !area ? (
                 <>
                     <div className="finance-six">
                         <Kpi
@@ -670,7 +674,7 @@ export default function FinanceWorkspace(p: Props) {
                     </div>
                     <div className="finance-two">
                         <Panel
-                            title="Próximos cobros"
+                            title={p.historicalAsOf ? 'Cobros pendientes al cierre' : 'Próximos cobros'}
                             action={
                                 <Link href="/billing/payments?tab=due&kind=receipt">
                                     Ver todos
@@ -680,7 +684,7 @@ export default function FinanceWorkspace(p: Props) {
                             <InvoiceTable rows={p.receipts} compact />
                         </Panel>
                         <Panel
-                            title="Próximos pagos"
+                            title={p.historicalAsOf ? 'Pagos pendientes al cierre' : 'Próximos pagos'}
                             action={
                                 <Link href="/billing/payments?tab=due&kind=payment">
                                     Ver todos
@@ -695,7 +699,7 @@ export default function FinanceWorkspace(p: Props) {
                 <>
                     {tab === 'position' ? (
                         <Panel title="Posición por cuenta">
-                            <FinanceAccounts accounts={p.accounts} />
+                            {p.historicalAsOf ? <p>El saldo bancario histórico no está disponible.</p> : <FinanceAccounts accounts={p.accounts} />}
                             <p>
                                 El saldo disponible confirmado no está
                                 disponible. Se muestran movimientos registrados

@@ -43,8 +43,8 @@ export type Invoice = {
     amount: string;
     paid: string;
     credits: string;
-    balance: string;
-    overpaid: string;
+    balance: string | null;
+    overpaid: string | null;
     status: string;
     locked_at: string | null;
     payment_state: string;
@@ -91,6 +91,7 @@ export const labels: Record<string, string> = {
     pending: 'Pendiente',
     overdue: 'Vencida',
     partial: 'Parcial',
+    review_required: 'Pendiente de revisión',
     cancelled: 'Cancelada',
     credit_note: 'Rectificativa',
     receipt: 'Cobro',

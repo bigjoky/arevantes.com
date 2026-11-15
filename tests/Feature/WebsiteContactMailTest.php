@@ -128,7 +128,7 @@ class WebsiteContactMailTest extends TestCase
         User::factory()->create(['role' => 'admin']);
         $this->post(route('website.contact'), $this->payload());
         $item = WebsiteContactMail::firstOrFail();
-        config(['contact-mail.enabled' => true, 'mail.default' => 'smtp']);
+        config(['contact-mail.enabled' => true, 'contact-mail.transport' => 'smtp', 'mail.default' => 'smtp']);
         $pending = \Mockery::mock(PendingMail::class);
         $pending->shouldReceive('send')->once()->andReturn(new \stdClass);
         Mail::shouldReceive('to')->once()->andReturn($pending);
@@ -215,7 +215,7 @@ class WebsiteContactMailTest extends TestCase
         User::factory()->create(['role' => 'admin']);
         $this->post(route('website.contact'), $this->payload());
         $item = WebsiteContactMail::firstOrFail();
-        config(['contact-mail.enabled' => true, 'mail.default' => 'smtp']);
+        config(['contact-mail.enabled' => true, 'contact-mail.transport' => 'smtp', 'mail.default' => 'smtp']);
         Mail::shouldReceive('to')->once()->andThrow(new \RuntimeException('transport failure'));
         $this->assertSame('uncertain', app(WebsiteContactOutbox::class)->send($item->id));
         $this->assertSame('not_pending', app(WebsiteContactOutbox::class)->send($item->id));
