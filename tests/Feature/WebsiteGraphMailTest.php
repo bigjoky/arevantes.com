@@ -27,6 +27,8 @@ class WebsiteGraphMailTest extends TestCase
 
     private string $publicKey;
 
+    private array $originalGraphEnvironment = [];
+
     public function test_technical_test_requires_authorized_session_and_exact_recipient(): void
     {
         $admin = User::factory()->create(['role' => 'admin']);
@@ -189,6 +191,12 @@ class WebsiteGraphMailTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        foreach (['MS_GRAPH_CERTIFICATE_PEM_B64', 'MS_GRAPH_PRIVATE_KEY_PEM_B64', 'MS_GRAPH_PRIVATE_KEY_PASSPHRASE'] as $name) {
+            $this->originalGraphEnvironment[$name] = [getenv($name), $_ENV[$name] ?? null, $_SERVER[$name] ?? null];
+            putenv($name);
+            unset($_ENV[$name], $_SERVER[$name]);
+        }
+        Http::preventStrayRequests();
         $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
         $csr = openssl_csr_new(['commonName' => 'Local Test'], $key, ['digest_alg' => 'sha256']);
         $cert = openssl_csr_sign($csr, null, $key, 1, ['digest_alg' => 'sha256']);
@@ -210,6 +218,19 @@ class WebsiteGraphMailTest extends TestCase
     {
         @unlink($this->certPath);
         @unlink($this->keyPath);
+        foreach ($this->originalGraphEnvironment as $name => [$process, $env, $server]) {
+            $process === false ? putenv($name) : putenv($name.'='.$process);
+            if ($env !== null) {
+                $_ENV[$name] = $env;
+            } else {
+                unset($_ENV[$name]);
+            }
+            if ($server !== null) {
+                $_SERVER[$name] = $server;
+            } else {
+                unset($_SERVER[$name]);
+            }
+        }
         parent::tearDown();
     }
 
