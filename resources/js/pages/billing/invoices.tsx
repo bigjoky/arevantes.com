@@ -85,7 +85,7 @@ export default function Invoices({
                     )
                 }
             />
-            {historicalAvailable && <div className="mb-4"><Button variant="outline" asChild><Link href="/billing/historical-invoices">Regularización histórica 2026</Link></Button></div>}
+            {historicalAvailable && <div className="mb-4"><Button variant="outline" asChild><Link href="/billing/historical-invoices">Regularización histórica</Link></Button></div>}
             <Panel title="">
                 <QueryFilters path={path} filters={filters}>
                     <label>

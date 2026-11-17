@@ -28,20 +28,19 @@ class SelectedFiscalYearTest extends TestCase
         $this->get('/billing/suppliers?year=2026')->assertOk()->assertInertia(fn (Assert $page) => $page->where('invoices.total', 1)->where('invoices.data.0.number', 'YEAR-2026'));
     }
 
-    public function test_regularization_rejects_mutations_outside_2026(): void
+    public function test_regularization_rejects_unsupported_exercise_and_requires_cross_year_confirmation(): void
     {
         config(['fiscal.historical_invoice_2026' => true]);
         $user = User::factory()->create(['role' => 'admin']);
         $user->permissionProfile->permissions()->syncWithoutDetaching([Permission::where('key', 'manage-historical-invoices-2026')->firstOrFail()->id]);
-        $this->actingAs($user)->get('/billing/historical-invoices?year=2025')->assertOk()->assertInertia(fn (Assert $page) => $page->where('selectedYear', 2025));
+        $this->actingAs($user)->get('/billing/historical-invoices?year=2023')->assertOk();
         $this->post('/billing/historical-invoices', [])->assertSessionHasErrors('year');
         $this->post('/billing/historical-invoices/import', [])->assertSessionHasErrors('year');
-        $this->post('/billing/historical-invoices/1/confirm', ['accounting_date' => '2026-03-01'])->assertSessionHasErrors('year');
+        foreach ([2024, 2025, 2026] as $year) {
+            $this->get('/billing/historical-invoices?year='.$year)->assertOk()->assertInertia(fn (Assert $page) => $page->where('selectedYear', $year));
+            $this->post('/billing/historical-invoices/1/confirm', ['accounting_date' => '2027-03-01'])->assertSessionHasErrors('accounting_date');
+        }
         $this->assertSame(0, DB::table('historical_invoice_rows')->count());
-        $this->get('/billing/historical-invoices?year=2024')->assertOk()->assertInertia(fn (Assert $page) => $page->where('selectedYear', 2024));
-        $this->post('/billing/historical-invoices/1/confirm', ['accounting_date' => '2026-03-01'])->assertSessionHasErrors('year');
-        $this->get('/billing/historical-invoices?year=2026')->assertOk()->assertInertia(fn (Assert $page) => $page->where('selectedYear', 2026));
-        $this->post('/billing/historical-invoices/1/confirm', ['accounting_date' => '2027-03-01'])->assertSessionHasErrors('accounting_date');
     }
     public function test_cross_year_payments_follow_payment_date_not_invoice_date(): void
     {

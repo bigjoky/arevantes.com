@@ -23,22 +23,26 @@ use Illuminate\Validation\ValidationException;
 /** Confirms only the narrow supported case; unresolved documents remain in staging. */
 final class ConfirmInvoice
 {
-    public function confirm(int $rowId, User $user, string $accountingDate): Expense
+    public function confirm(int $rowId, User $user, string $accountingDate, ?int $selectedYear = null): Expense
     {
         abort_unless(config('fiscal.historical_invoice_2026') && $user->hasRole('admin') && $user->permission_profile_id
             && $user->can('manage-accounting') && app(PermissionResolver::class)->allows($user, 'manage-historical-invoices-2026'), 403);
 
-        return DB::transaction(function () use ($rowId, $user, $accountingDate) {
+        return DB::transaction(function () use ($rowId, $user, $accountingDate, $selectedYear) {
             $row = DB::table('historical_invoice_rows')->where('id', $rowId)->lockForUpdate()->first();
             abort_unless($row, 404);
+            $data = json_decode($row->document, true, flags: JSON_THROW_ON_ERROR);
+            $year = (int) ($data['_staging_year'] ?? 2026);
+            if (! in_array($year, [2024, 2025, 2026], true) || ($selectedYear !== null && $selectedYear !== $year)) {
+                throw ValidationException::withMessages(['year' => 'La preparación pertenece a otro ejercicio.']);
+            }
             if ($row->expense_id) {
                 return Expense::findOrFail($row->expense_id);
             }
             if ($row->status !== 'review_required') {
                 throw ValidationException::withMessages(['row' => 'El estado de la preparación no permite registrarla.']);
             }
-            $data = json_decode($row->document, true, flags: JSON_THROW_ON_ERROR);
-            if (array_diff(array_keys($data), [...CsvReader::COLUMNS, 'supplier_id', 'expense_category_id', 'notes']) !== [] || filled($data['received_date'] ?? null)) {
+            if (array_diff(array_keys($data), [...CsvReader::COLUMNS, 'supplier_id', 'expense_category_id', 'notes', '_staging_year']) !== [] || filled($data['received_date'] ?? null)) {
                 throw ValidationException::withMessages(['row' => 'Este documento contiene datos que requieren revisión adicional.']);
             }
             $data['accounting_date'] = $accountingDate;
@@ -47,7 +51,7 @@ final class ConfirmInvoice
                 'expense_category_id' => ['required', 'integer', 'exists:expense_categories,id'],
                 'supplier_tax_id' => ['required', 'string', 'max:32'],
                 'supplier_number' => ['required', 'string', 'max:255'],
-                'issue_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:2026-01-01', 'before_or_equal:2026-12-31', 'before_or_equal:today'],
+                'issue_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:'.($year === 2024 ? '2024-06-18' : $year.'-01-01'), 'before_or_equal:'.$year.'-12-31', 'before_or_equal:today'],
                 'operation_date' => ['nullable', 'date_format:Y-m-d'],
                 'received_date' => ['nullable', 'date_format:Y-m-d'],
                 'due_date' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:issue_date'],
