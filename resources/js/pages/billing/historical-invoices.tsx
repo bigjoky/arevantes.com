@@ -9,7 +9,7 @@ type Category = { id: number; name: string };
 const blank = { supplier_id: '', supplier_tax_id: '', expense_category_id: '', supplier_number: '', issue_date: '', operation_date: '', received_date: '', due_date: '', taxable_base: '', vat_rate: '', vat_amount: '', withholding_rate: '0', withholding_amount: '0', total: '', notes: '', evidence: null as File | null };
 type FormData = typeof blank;
 
-export default function HistoricalInvoices({ rows, suppliers, categories, selectedYear }: { rows: Row[]; suppliers: Supplier[]; categories: Category[]; selectedYear: number }) {
+export default function HistoricalInvoices({ rows, suppliers, categories, selectedYear, canManageSuppliers }: { rows: Row[]; suppliers: Supplier[]; categories: Category[]; selectedYear: number; canManageSuppliers: boolean }) {
     const [editing, setEditing] = useState<number | null>(null);
     const [accountingDate, setAccountingDate] = useState('');
     const [confirmError, setConfirmError] = useState('');
@@ -39,11 +39,12 @@ values[key] = String(row.document[key] ?? blank[key]);
     const field = (name: Exclude<keyof FormData, 'evidence'>, label: string, type = 'text') => <label className="grid min-w-0 gap-1 text-sm">{label}<input className="min-w-0 w-full rounded border bg-white px-3 py-2 text-slate-900" type={type} value={form.data[name]} onChange={(e) => form.setData(name, e.target.value)} />{form.errors[name] && <span className="text-red-700">{form.errors[name]}</span>}</label>;
 
     return <PageShell className="billing-workspace">
-        <Head title="Regularización histórica 2026" />
-        <PageHeader title="Regularización histórica de facturas recibidas 2026" description="Prepare y revise cada factura antes de solicitar su registro." breadcrumbs={[{ title: 'Facturación', href: '/billing' }, { title: 'Facturas de proveedores', href: '/billing/suppliers' }, { title: 'Regularización 2026', href: '/billing/historical-invoices' }]} />
-        {selectedYear !== 2026 ? <p role="alert" className="rounded-xl border bg-white p-5">La regularización histórica solo admite facturas de 2026. Selecciona el ejercicio 2026 para continuar.</p> :
+        <Head title="Regularización histórica" />
+        <PageHeader title="Regularización histórica de facturas recibidas" description="Prepare y revise cada factura antes de solicitar su registro." breadcrumbs={[{ title: 'Facturación', href: '/billing' }, { title: 'Facturas de proveedores', href: '/billing/suppliers' }, { title: 'Regularización histórica', href: '/billing/historical-invoices' }]} />
+        {![2024, 2025, 2026].includes(selectedYear) ? <p role="alert" className="rounded-xl border bg-white p-5">Selecciona el ejercicio 2024, 2025 o 2026 para continuar.</p> :
         <div className="space-y-6">
             <section className="rounded-xl border bg-white p-5 text-slate-900"><h2 className="mb-2 text-lg font-semibold">{editing ? `Editar preparación #${editing}` : 'Nueva preparación'}</h2><p className="mb-4 text-sm text-slate-600">Conserva la fecha original de emisión y autoriza la fecha contable al confirmar. Después podrás registrar un pago acreditado desde la ficha de la factura con su fecha real. La deducción fiscal requiere revisión.</p>
+                {canManageSuppliers && <a href="/suppliers/manage" className="mb-4 inline-block text-green-700 underline">Crear o gestionar proveedores</a>}
                 <form onSubmit={save} className="grid gap-4 md:grid-cols-3">
                     <label className="grid min-w-0 gap-1 text-sm">Proveedor<select className="min-w-0 w-full rounded border bg-white px-3 py-2 text-slate-900" value={form.data.supplier_id} onChange={(e) => {
  const id = e.target.value; const supplier = suppliers.find((s) => String(s.id) === id); form.setData((data) => ({ ...data, supplier_id: id, supplier_tax_id: data.supplier_tax_id || supplier?.tax_id || '' })); 
@@ -65,7 +66,7 @@ values[key] = String(row.document[key] ?? blank[key]);
 edit(row);
 } 
 }} onChange={(e) => setAccountingDate(e.target.value)} /></label><Button type="button" disabled={editing !== row.id || !accountingDate || form.isDirty} onClick={() => {
- const otherYear = !accountingDate.startsWith('2026-'); const message = otherYear ? `La fecha contable pertenece a ${accountingDate.slice(0, 4)}, distinto del ejercicio 2026. ¿Confirmas expresamente el registro en ese ejercicio?` : '¿Confirmar los datos guardados y su asiento con la fecha contable indicada?';
+ const otherYear = !accountingDate.startsWith(`${selectedYear}-`); const message = otherYear ? `La fecha contable pertenece a ${accountingDate.slice(0, 4)}, distinto del ejercicio ${selectedYear}. ¿Confirmas expresamente el registro en ese ejercicio?` : '¿Confirmar los datos guardados y su asiento con la fecha contable indicada?';
 
  if (window.confirm(message)) {
 router.post(`/billing/historical-invoices/${row.id}/confirm`, { accounting_date: accountingDate, confirm_other_year: otherYear }, { onError: (errors) => setConfirmError(Object.values(errors).join(' ')) });

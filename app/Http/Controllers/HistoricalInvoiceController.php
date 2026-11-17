@@ -30,7 +30,12 @@ final class HistoricalInvoiceController extends Controller
     {
         $this->authorizeAccess($request);
         $selectedYear = (int) $request->attributes->get('selected_fiscal_year', now()->year);
-        $rows = DB::table('historical_invoice_rows')->orderByDesc('id')->limit(100)->get()->map(fn ($row) => [
+        $rows = DB::table('historical_invoice_rows')->where(function ($query) use ($selectedYear) {
+            $query->where('document->_staging_year', (string) $selectedYear);
+            if ($selectedYear === 2026) {
+                $query->orWhereNull('document->_staging_year');
+            }
+        })->orderByDesc('id')->limit(100)->get()->map(fn ($row) => [
             'id' => $row->id, 'batch_id' => $row->batch_id, 'status' => $row->status,
             'document' => json_decode($row->document, true), 'errors' => json_decode($row->errors, true),
             'expense_id' => $row->expense_id, 'evidence' => $row->evidence ? json_decode($row->evidence, true)['original_name'] : null,
@@ -39,16 +44,17 @@ final class HistoricalInvoiceController extends Controller
 
         return Inertia::render('billing/historical-invoices', ['selectedYear' => $selectedYear, 'rows' => $rows,
             'suppliers' => Supplier::where('is_active', true)->orderBy('legal_name')->get(['id', 'legal_name', 'tax_id']),
-            'categories' => ExpenseCategory::orderBy('name')->get(['id', 'name'])]);
+            'categories' => ExpenseCategory::orderBy('name')->get(['id', 'name']),
+            'canManageSuppliers' => $request->user()->can('manage-catalog')]);
     }
 
     public function save(Request $request, ?int $id = null): RedirectResponse
     {
         $this->authorizeAccess($request);
-        $this->requireYear2026($request);
+        $year = $this->selectedYear($request);
         $data = $request->validate([
             'supplier_id' => ['required', 'integer', 'exists:suppliers,id'], 'supplier_tax_id' => ['required', 'string', 'max:32'], 'expense_category_id' => ['required', 'integer', 'exists:expense_categories,id'],
-            'supplier_number' => ['required', 'string', 'max:255'], 'issue_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:2026-01-01', 'before_or_equal:2026-12-31', 'before_or_equal:today'],
+            'supplier_number' => ['required', 'string', 'max:255'], 'issue_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:'.($year === 2024 ? '2024-06-18' : $year.'-01-01'), 'before_or_equal:'.$year.'-12-31', 'before_or_equal:today'],
             'operation_date' => ['nullable', 'date_format:Y-m-d'], 'received_date' => ['nullable', 'date_format:Y-m-d'], 'due_date' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:issue_date'],
             'taxable_base' => ['required', 'numeric', 'decimal:0,2', 'min:0'], 'vat_rate' => ['required', 'numeric', 'between:0,100'],
             'vat_amount' => ['required', 'numeric', 'decimal:0,2', 'min:0'], 'total' => ['required', 'numeric', 'decimal:0,2', 'min:0'],
@@ -56,6 +62,7 @@ final class HistoricalInvoiceController extends Controller
             'notes' => ['nullable', 'string', 'max:2000'], 'evidence' => ['nullable', 'file', new SafeUpload(['pdf'], 10240)],
         ]);
         $supplier = Supplier::whereKey($data['supplier_id'])->where('is_active', true)->firstOrFail();
+        $data['_staging_year'] = (string) $year;
         $file = $data['evidence'] ?? null;
         unset($data['evidence']);
         $taxKey = fn ($tax) => strtoupper(str_replace([' ', '-', '.'], '', trim($tax ?? '')));
@@ -71,10 +78,14 @@ final class HistoricalInvoiceController extends Controller
             $evidence = ['path' => $path, 'original_name' => $file->getClientOriginalName(), 'mime_type' => $file->getMimeType(), 'size' => $file->getSize(), 'sha256' => hash_file('sha256', $file->getRealPath())];
         }
         try {
-            DB::transaction(function () use ($request, $id, $data, $evidence) {
+            DB::transaction(function () use ($request, $id, $data, $evidence, $year) {
                 if ($id) {
                     $row = DB::table('historical_invoice_rows')->where('id', $id)->lockForUpdate()->first();
                     abort_unless($row, 404);
+                    $stored = json_decode($row->document, true, flags: JSON_THROW_ON_ERROR);
+                    if ((int) ($stored['_staging_year'] ?? 2026) !== $year) {
+                        throw \Illuminate\Validation\ValidationException::withMessages(['year' => 'La preparación pertenece a otro ejercicio.']);
+                    }
                     abort_if($row->expense_id || $row->status !== 'review_required', 409);
                     $attributes = ['document' => json_encode($data, JSON_THROW_ON_ERROR), 'errors' => '[]', 'updated_at' => now()];
                     if ($evidence) {
@@ -101,14 +112,14 @@ final class HistoricalInvoiceController extends Controller
     public function import(Request $request, CsvReader $reader, StageInvoices $staging): RedirectResponse
     {
         $this->authorizeAccess($request);
-        $this->requireYear2026($request);
+        $year = $this->selectedYear($request);
         $request->validate(['csv' => ['required', 'file', 'max:1024', 'extensions:csv,txt']]);
         try {
             $rows = $reader->read($request->file('csv')->getRealPath());
         } catch (\RuntimeException $exception) {
             throw \Illuminate\Validation\ValidationException::withMessages(['csv' => $exception->getMessage()]);
         }
-        $staging->fromCsv($rows, $request->user()->id);
+        $staging->fromCsv($rows, $request->user()->id, $year);
 
         return back();
     }
@@ -117,26 +128,28 @@ final class HistoricalInvoiceController extends Controller
     {
         $this->authorizeAccess($request);
 
-        return response()->streamDownload(function () { $output = fopen('php://output', 'w'); fputcsv($output, CsvReader::COLUMNS, escape: ''); fclose($output); }, 'plantilla-facturas-2026.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+        return response()->streamDownload(function () { $output = fopen('php://output', 'w'); fputcsv($output, CsvReader::COLUMNS, escape: ''); fclose($output); }, 'plantilla-facturas-historicas.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
     public function confirm(Request $request, int $id, ConfirmInvoice $service): RedirectResponse
     {
         $this->authorizeAccess($request);
-        $this->requireYear2026($request);
+        $year = $this->selectedYear($request);
         $data = $request->validate(['accounting_date' => ['required', 'date_format:Y-m-d'], 'confirm_other_year' => ['sometimes', 'boolean']]);
-        if (substr($data['accounting_date'], 0, 4) !== '2026' && ! ($data['confirm_other_year'] ?? false)) {
+        if (substr($data['accounting_date'], 0, 4) !== (string) $year && ! ($data['confirm_other_year'] ?? false)) {
             throw \Illuminate\Validation\ValidationException::withMessages(['accounting_date' => 'La fecha contable pertenece a otro ejercicio. Confirma expresamente antes de continuar.']);
         }
-        $expense = $service->confirm($id, $request->user(), $data['accounting_date']);
+        $expense = $service->confirm($id, $request->user(), $data['accounting_date'], $year);
 
         return redirect('/billing/suppliers/expense/'.$expense->id);
     }
 
-    private function requireYear2026(Request $request): void
+    private function selectedYear(Request $request): int
     {
-        if ((int) $request->attributes->get('selected_fiscal_year', now()->year) !== 2026) {
-            throw \Illuminate\Validation\ValidationException::withMessages(['year' => 'La regularización histórica está disponible únicamente para el ejercicio 2026.']);
+        $year = (int) $request->attributes->get('selected_fiscal_year', now()->year);
+        if (! in_array($year, [2024, 2025, 2026], true)) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['year' => 'Selecciona el ejercicio 2024, 2025 o 2026.']);
         }
+        return $year;
     }
 }

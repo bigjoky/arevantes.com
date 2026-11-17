@@ -24,7 +24,7 @@ final class ExpenseRegistration
             }
             $data = app(ExpenseCreditorRegistry::class)->newInvoice($data, true);
             $accountingDecision = Arr::pull($data, '_accounting_control_decision');
-            $number = $this->numbers->next('expense', $data['expense_date'])['number'];
+            $number = $this->numbers->next('expense', $accountingDate ?? $data['expense_date'])['number'];
             $amount = $data['tax_calculation_snapshot']['result']['totals']['total'] ?? round((float) $data['subtotal'] + (float) $data['tax_amount'] - (float) $data['withholding_amount'], 2);
             $expense = Expense::create([...$data, 'created_by' => $userId, 'number' => $number, 'amount' => $amount, 'status' => 'pending']);
             $expense->taxLines()->createMany($taxLines);

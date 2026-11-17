@@ -76,6 +76,20 @@ class HistoricalInvoiceConcurrencyTest extends TestCase
         $this->assertSame(1, JournalEntry::count());
     }
 
+    public function test_two_2025_rows_with_the_same_identity_cannot_both_register(): void
+    {
+        [$user, $row, $batch, $document] = $this->fixture();
+        FiscalYear::firstOrCreate(['year' => 2025], ['starts_on' => '2025-01-01', 'ends_on' => '2025-12-31', 'status' => 'open']);
+        $document['issue_date'] = '2025-01-15';
+        $document['_staging_year'] = '2025';
+        DB::table('historical_invoice_rows')->where('id', $row)->update(['document' => json_encode($document)]);
+        $second = DB::table('historical_invoice_rows')->insertGetId(['batch_id' => $batch, 'row_number' => 2, 'status' => 'review_required', 'document' => json_encode($document), 'errors' => '[]', 'created_by' => $user->id, 'created_at' => now(), 'updated_at' => now()]);
+        $results = $this->race($user, [['operation' => 'confirm', 'row' => $row], ['operation' => 'confirm', 'row' => $second]]);
+        $this->assertSame(1, collect($results)->where('status', 'ok')->count());
+        $this->assertSame(1, DB::table('expenses')->count());
+        $this->assertSame(1, JournalEntry::count());
+    }
+
     public function test_month_close_serializes_with_confirmation(): void
     {
         [$user, $row] = $this->fixture();

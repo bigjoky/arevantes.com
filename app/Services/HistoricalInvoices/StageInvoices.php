@@ -10,23 +10,27 @@ use Illuminate\Support\Facades\Validator;
 final class StageInvoices
 {
     /** @param list<array{row:int, values:array<string,string>, errors:list<string>}> $rows */
-    public function fromCsv(array $rows, int $userId): int
+    public function fromCsv(array $rows, int $userId, int $year = 2026): int
     {
+        if (! in_array($year, [2024, 2025, 2026], true)) {
+            throw new \InvalidArgumentException('Ejercicio no admitido.');
+        }
         if (count($rows) > CsvReader::MAX_ROWS) {
             throw new \InvalidArgumentException('Demasiadas filas.');
         }
 
-        return DB::transaction(function () use ($rows, $userId) {
+        return DB::transaction(function () use ($rows, $userId, $year) {
             $batchId = DB::table('historical_invoice_batches')->insertGetId([
                 'created_by' => $userId, 'source' => 'csv', 'created_at' => now(), 'updated_at' => now(),
             ]);
             $seen = [];
             foreach ($rows as $row) {
                 $data = $row['values'];
+                $data['_staging_year'] = (string) $year;
                 $validator = Validator::make($data, [
                     'supplier_tax_id' => ['required', 'string', 'max:32'],
                     'supplier_number' => ['required', 'string', 'max:255'],
-                    'issue_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:2026-01-01', 'before_or_equal:2026-12-31', 'before_or_equal:today'],
+                    'issue_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:'.($year === 2024 ? '2024-06-18' : $year.'-01-01'), 'before_or_equal:'.$year.'-12-31', 'before_or_equal:today'],
                     'operation_date' => ['nullable', 'date_format:Y-m-d'],
                     'received_date' => ['nullable', 'date_format:Y-m-d'],
                     'due_date' => ['nullable', 'date_format:Y-m-d'],
