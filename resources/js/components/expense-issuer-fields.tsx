@@ -27,6 +27,9 @@ export const ExpenseIssuerFields = forwardRef<ExpenseIssuerHandle, {
         taxId: '',
         country: 'ES',
         countryTouched: false,
+        autoSupplierTax: '',
+        autoSupplierLegal: '',
+        autoSupplierTrade: '',
         legalName: '',
         tradeName: '',
         autoLegal: false,
@@ -38,16 +41,28 @@ export const ExpenseIssuerFields = forwardRef<ExpenseIssuerHandle, {
                 const currentId = current.taxId.replace(/[ .-]/g, '').toUpperCase();
                 const supplierId = (supplier.tax_id || '').replace(/[ .-]/g, '').toUpperCase();
 
-                if (currentId && supplierId && currentId !== supplierId) {
+                const autoId = current.autoSupplierTax.replace(/[ .-]/g, '').toUpperCase();
+                const replaceAuto = !!currentId && currentId === autoId && currentId !== supplierId;
+
+                if (currentId && supplierId && currentId !== supplierId && !replaceAuto) {
                     return current;
                 }
+
+                const legalName = !current.legalName || (replaceAuto && current.legalName === current.autoSupplierLegal)
+                    ? supplier.legal_name : current.legalName;
+                const tradeName = !current.tradeName || (replaceAuto && current.tradeName === current.autoSupplierTrade)
+                    ? supplier.trade_name || '' : current.tradeName;
+                const taxId = !current.taxId || replaceAuto ? supplier.tax_id || '' : current.taxId;
 
                 return {
                     ...current,
                     country: current.countryTouched ? current.country : (supplier.country || current.country),
-                    taxId: current.taxId || supplier.tax_id || '',
-                    legalName: current.legalName || supplier.legal_name,
-                    tradeName: current.tradeName || supplier.trade_name || '',
+                    taxId,
+                    legalName,
+                    tradeName,
+                    autoSupplierTax: !current.taxId || replaceAuto ? taxId : current.autoSupplierTax,
+                    autoSupplierLegal: !current.legalName || (replaceAuto && current.legalName === current.autoSupplierLegal) ? legalName : current.autoSupplierLegal,
+                    autoSupplierTrade: !current.tradeName || (replaceAuto && current.tradeName === current.autoSupplierTrade) ? tradeName : current.autoSupplierTrade,
                 };
             });
         },
@@ -178,6 +193,7 @@ export const ExpenseIssuerFields = forwardRef<ExpenseIssuerHandle, {
                         setFields((current) => ({
                             ...current,
                             taxId: value,
+                            autoSupplierTax: '',
                             legalName: current.autoLegal
                                 ? ''
                                 : current.legalName,
