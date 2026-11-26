@@ -638,6 +638,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('catalog/products/{product}/replenishment-targets', [ReplenishmentTargetController::class, 'store'])->middleware('can:manage-catalog')->name('replenishment-targets.store');
     Route::patch('catalog/products/{product}', [CatalogController::class, 'updateProduct'])->middleware('can:manage-catalog')->name('catalog.products.update');
     Route::delete('catalog/products/{product}', [CatalogController::class, 'destroyProduct'])->middleware('can:manage-catalog')->name('catalog.products.destroy');
+    Route::post('catalog/suppliers/quick-lookup', [\App\Http\Controllers\QuickSupplierController::class, 'lookup'])->middleware(['can:manage-catalog', 'throttle:20,1']);
+    Route::post('catalog/suppliers/quick-create', [\App\Http\Controllers\QuickSupplierController::class, 'store'])->middleware('can:manage-catalog');
     Route::post('catalog/suppliers', [CatalogController::class, 'storeSupplier'])->middleware('can:manage-catalog')->name('catalog.suppliers.store');
     Route::patch('catalog/suppliers/{supplier}', [CatalogController::class, 'updateSupplier'])->middleware('can:manage-catalog')->name('catalog.suppliers.update');
     Route::delete('catalog/suppliers/{supplier}', [CatalogController::class, 'destroySupplier'])->middleware('can:manage-catalog')->name('catalog.suppliers.destroy');

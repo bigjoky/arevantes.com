@@ -60,6 +60,11 @@ return [
         'system_code' => env('HUAWEI_FUSIONSOLAR_SYSTEM_CODE'),
     ],
 
+    'supplier_registry' => [
+        'provider' => env('SUPPLIER_REGISTRY_PROVIDER', 'disabled'),
+        'key' => env('SUPPLIER_REGISTRY_API_KEY'),
+    ],
+
     'apns' => [
         'key_id' => env('APNS_KEY_ID'),
         'team_id' => env('APNS_TEAM_ID'),

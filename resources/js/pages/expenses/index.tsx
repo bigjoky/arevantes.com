@@ -6,16 +6,19 @@ import {
     Trash2,
     WalletCards,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { AccountingOperationFields } from '@/components/accounting/operation-fields';
 import { ExpenseCalculationPreview } from '@/components/expense-calculation-preview';
 import { ExpenseIssuerFields } from '@/components/expense-issuer-fields';
+import type { ExpenseIssuerHandle } from '@/components/expense-issuer-fields';
 import {
     FormActions,
     FormErrorSummary,
     FormSection,
 } from '@/components/forms/form-layout';
 import InputError from '@/components/input-error';
+import { QuickSupplier  } from '@/components/quick-supplier';
+import type {QuickSupplierValue} from '@/components/quick-supplier';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -42,6 +45,7 @@ type Supplier = {
     legal_name: string;
     trade_name: string | null;
     tax_id: string | null;
+    country: string;
 };
 type Installation = {
     id: number;
@@ -343,6 +347,11 @@ function ExpenseDialog({
 }) {
     const { locale } = useLocale();
     const [open, setOpen] = useState(initialOpen);
+    const [addedSuppliers, setAddedSuppliers] = useState<QuickSupplierValue[]>([]);
+    const [selectedSupplier, setSelectedSupplier] = useState('none');
+    const issuerRef = useRef<ExpenseIssuerHandle>(null);
+    const canManageSuppliers = usePage().props.auth.abilities.manageCatalog;
+    const allSuppliers = [...suppliers, ...addedSuppliers.filter((item) => !suppliers.some((supplier) => supplier.id === item.id))];
     const canUseGroupedCalculation = usePage<{
         canUseGroupedCalculation: boolean;
     }>().props.canUseGroupedCalculation;
@@ -477,27 +486,23 @@ function ExpenseDialog({
                                             c.name,
                                         ])}
                                     />
-                                    <SelectField
-                                        label={translate(
-                                            'Supplier (optional)',
-                                            locale,
-                                        )}
-                                        name="supplier_id"
-                                        error={errors.supplier_id}
-                                        options={[
-                                            [
-                                                'none',
-                                                translate(
-                                                    'No linked supplier',
-                                                    locale,
-                                                ),
-                                            ],
-                                            ...suppliers.map((s) => [
-                                                String(s.id),
-                                                s.trade_name || s.legal_name,
-                                            ]),
-                                        ]}
-                                    />
+                                    <div className="grid gap-2">
+                                        <Label>Proveedor (opcional)</Label>
+                                        <Select name="supplier_id" value={selectedSupplier} onValueChange={(value) => {
+ setSelectedSupplier(value); const supplier = allSuppliers.find((item) => String(item.id) === value);
+
+ if (supplier) {
+issuerRef.current?.applySupplier(supplier);
+}
+}}>
+                                            <SelectTrigger><SelectValue /></SelectTrigger>
+                                            <SelectContent><SelectItem value="none">Sin proveedor asociado</SelectItem>{allSuppliers.map((supplier) => <SelectItem key={supplier.id} value={String(supplier.id)}>{supplier.legal_name}</SelectItem>)}</SelectContent>
+                                        </Select>
+                                        <InputError message={errors.supplier_id} />
+                                        {canManageSuppliers && <QuickSupplier onSelect={(supplier) => {
+ setAddedSuppliers((items) => [...items, supplier]); setSelectedSupplier(String(supplier.id)); issuerRef.current?.applySupplier(supplier);
+}} />}
+                                    </div>
                                     <SelectField
                                         label={translate(
                                             'Installation (optional)',
@@ -542,6 +547,7 @@ function ExpenseDialog({
                                     <ExpenseIssuerFields
                                         errors={errors}
                                         countries={countries}
+                                        ref={issuerRef}
                                     />
                                     <Field
                                         label={translate('Issue date', locale)}

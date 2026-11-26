@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,22 +13,45 @@ type Candidate = {
     reference: string | null;
 };
 
-export function ExpenseIssuerFields({
-    errors,
-    countries,
-}: {
+export type ExpenseIssuerHandle = { applySupplier: (supplier: { tax_id: string | null; legal_name: string; trade_name: string | null; country?: string | null }) => void };
+
+export const ExpenseIssuerFields = forwardRef<ExpenseIssuerHandle, {
     errors: Record<string, string>;
     countries: { code: string; name: string }[];
-}) {
+}>(function ExpenseIssuerFields({
+    errors,
+    countries,
+}, ref) {
     const { locale } = useLocale();
     const [fields, setFields] = useState({
         taxId: '',
         country: 'ES',
+        countryTouched: false,
         legalName: '',
         tradeName: '',
         autoLegal: false,
         autoTrade: false,
     });
+    useImperativeHandle(ref, () => ({
+        applySupplier(supplier) {
+            setFields((current) => {
+                const currentId = current.taxId.replace(/[ .-]/g, '').toUpperCase();
+                const supplierId = (supplier.tax_id || '').replace(/[ .-]/g, '').toUpperCase();
+
+                if (currentId && supplierId && currentId !== supplierId) {
+                    return current;
+                }
+
+                return {
+                    ...current,
+                    country: current.countryTouched ? current.country : (supplier.country || current.country),
+                    taxId: current.taxId || supplier.tax_id || '',
+                    legalName: current.legalName || supplier.legal_name,
+                    tradeName: current.tradeName || supplier.trade_name || '',
+                };
+            });
+        },
+    }), []);
     const { taxId, country, legalName, tradeName } = fields;
     const [candidates, setCandidates] = useState<Candidate[]>([]);
     const [status, setStatus] = useState<
@@ -119,6 +142,7 @@ export function ExpenseIssuerFields({
                         setFields((current) => ({
                             ...current,
                             country: value,
+                            countryTouched: true,
                             legalName: current.autoLegal
                                 ? ''
                                 : current.legalName,
@@ -270,4 +294,4 @@ export function ExpenseIssuerFields({
             </div>
         </div>
     );
-}
+});

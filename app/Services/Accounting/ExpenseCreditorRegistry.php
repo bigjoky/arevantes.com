@@ -25,13 +25,10 @@ class ExpenseCreditorRegistry
             $entity = FiscalEntity::firstOrCreate(['country' => $country, 'tax_id_key' => $key],
                 ['tax_id' => $data['issuer_tax_id'], 'legal_name' => $data['issuer_legal_name'], 'trade_names' => [], 'addresses' => [], 'is_active' => true]);
             FiscalEntity::whereKey($entity->id)->lockForUpdate()->firstOrFail();
-            $matches = Supplier::where('country', $country)
-                ->whereRaw("upper(replace(replace(replace(tax_id, ' ', ''), '-', ''), '.', '')) = ?", [$key])->limit(2)->get();
-            if ($matches->count() > 1) {
-                throw ValidationException::withMessages(['supplier_id' => __('Multiple suppliers share this fiscal identity. Select and review the supplier explicitly.')]);
-            }
-            $supplier = $matches->first() ?? Supplier::create(['legal_name' => $data['issuer_legal_name'], 'tax_id' => $data['issuer_tax_id'],
-                'country' => $country, 'is_active' => true]);
+            $supplier = app(\App\Services\SupplierCreation::class)->create([
+                'legal_name' => $data['issuer_legal_name'], 'tax_id' => $data['issuer_tax_id'],
+                'country' => $country, 'is_active' => true,
+            ])['supplier'];
             if (! $supplier->is_active) {
                 throw ValidationException::withMessages(['supplier_id' => __('The supplier is inactive. Review it before registering the invoice.')]);
             }

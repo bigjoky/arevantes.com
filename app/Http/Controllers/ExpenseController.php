@@ -53,7 +53,7 @@ class ExpenseController extends Controller
             'supplierInvoices' => PurchaseDocument::with('supplier:id,legal_name,trade_name')->whereIn('type', ['supplier_invoice', 'supplier_credit_note'])->latest('issue_date')->get(),
             'categories' => ExpenseCategory::where('is_active', true)->orderBy('name')->get(),
             'countries' => Country::orderBy('name')->get(['code', 'name']),
-            'suppliers' => Supplier::where('is_active', true)->orderBy('legal_name')->get(['id', 'legal_name', 'trade_name', 'tax_id']),
+            'suppliers' => Supplier::where('is_active', true)->orderBy('legal_name')->get(['id', 'legal_name', 'trade_name', 'tax_id', 'country']),
             'installations' => Installation::orderByDesc('created_at')->get(['id', 'project_reference', 'site_name']),
             'summary' => ['pending' => $this->pendingTotal(), 'paidThisMonth' => SupplierPayment::whereBetween('paid_at', [now()->startOfMonth(), now()->endOfMonth()])->sum('amount'), 'expensesThisMonth' => Expense::whereBetween('expense_date', [now()->startOfMonth(), now()->endOfMonth()])->sum('amount')],
         ]);
