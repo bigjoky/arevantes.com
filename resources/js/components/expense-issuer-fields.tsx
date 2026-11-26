@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,22 +13,60 @@ type Candidate = {
     reference: string | null;
 };
 
-export function ExpenseIssuerFields({
-    errors,
-    countries,
-}: {
+export type ExpenseIssuerHandle = { applySupplier: (supplier: { tax_id: string | null; legal_name: string; trade_name: string | null; country?: string | null }) => void };
+
+export const ExpenseIssuerFields = forwardRef<ExpenseIssuerHandle, {
     errors: Record<string, string>;
     countries: { code: string; name: string }[];
-}) {
+}>(function ExpenseIssuerFields({
+    errors,
+    countries,
+}, ref) {
     const { locale } = useLocale();
     const [fields, setFields] = useState({
         taxId: '',
         country: 'ES',
+        countryTouched: false,
+        autoSupplierTax: '',
+        autoSupplierLegal: '',
+        autoSupplierTrade: '',
         legalName: '',
         tradeName: '',
         autoLegal: false,
         autoTrade: false,
     });
+    useImperativeHandle(ref, () => ({
+        applySupplier(supplier) {
+            setFields((current) => {
+                const currentId = current.taxId.replace(/[ .-]/g, '').toUpperCase();
+                const supplierId = (supplier.tax_id || '').replace(/[ .-]/g, '').toUpperCase();
+
+                const autoId = current.autoSupplierTax.replace(/[ .-]/g, '').toUpperCase();
+                const replaceAuto = !!currentId && currentId === autoId && currentId !== supplierId;
+
+                if (currentId && supplierId && currentId !== supplierId && !replaceAuto) {
+                    return current;
+                }
+
+                const legalName = !current.legalName || (replaceAuto && current.legalName === current.autoSupplierLegal)
+                    ? supplier.legal_name : current.legalName;
+                const tradeName = !current.tradeName || (replaceAuto && current.tradeName === current.autoSupplierTrade)
+                    ? supplier.trade_name || '' : current.tradeName;
+                const taxId = !current.taxId || replaceAuto ? supplier.tax_id || '' : current.taxId;
+
+                return {
+                    ...current,
+                    country: current.countryTouched ? current.country : (supplier.country || current.country),
+                    taxId,
+                    legalName,
+                    tradeName,
+                    autoSupplierTax: !current.taxId || replaceAuto ? taxId : current.autoSupplierTax,
+                    autoSupplierLegal: !current.legalName || (replaceAuto && current.legalName === current.autoSupplierLegal) ? legalName : current.autoSupplierLegal,
+                    autoSupplierTrade: !current.tradeName || (replaceAuto && current.tradeName === current.autoSupplierTrade) ? tradeName : current.autoSupplierTrade,
+                };
+            });
+        },
+    }), []);
     const { taxId, country, legalName, tradeName } = fields;
     const [candidates, setCandidates] = useState<Candidate[]>([]);
     const [status, setStatus] = useState<
@@ -119,6 +157,7 @@ export function ExpenseIssuerFields({
                         setFields((current) => ({
                             ...current,
                             country: value,
+                            countryTouched: true,
                             legalName: current.autoLegal
                                 ? ''
                                 : current.legalName,
@@ -154,6 +193,7 @@ export function ExpenseIssuerFields({
                         setFields((current) => ({
                             ...current,
                             taxId: value,
+                            autoSupplierTax: '',
                             legalName: current.autoLegal
                                 ? ''
                                 : current.legalName,
@@ -270,4 +310,4 @@ export function ExpenseIssuerFields({
             </div>
         </div>
     );
-}
+});

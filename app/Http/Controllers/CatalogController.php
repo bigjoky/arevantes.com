@@ -72,7 +72,10 @@ class CatalogController extends Controller
 
     public function storeSupplier(Request $request): RedirectResponse
     {
-        Supplier::create($this->validateSupplier($request));
+        $result = app(\App\Services\SupplierCreation::class)->create($this->validateSupplier($request));
+        if ($result['existing']) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['tax_id' => 'Ya existe un proveedor con este identificador y país.']);
+        }
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Supplier created.')]);
     }

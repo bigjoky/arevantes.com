@@ -1,4 +1,4 @@
-import { Form, Head, Link } from '@inertiajs/react';
+import { Form, Head, Link, usePage } from '@inertiajs/react';
 import {
     ArrowLeft,
     Download,
@@ -10,6 +10,8 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import InputError from '@/components/input-error';
+import { QuickSupplier  } from '@/components/quick-supplier';
+import type {QuickSupplierValue} from '@/components/quick-supplier';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -73,6 +75,9 @@ export default function PurchaseInboxShow({
     purchaseOrders: PurchaseOrder[];
 }) {
     const extracted = inboxDocument.extracted_data || {};
+    const [addedSuppliers, setAddedSuppliers] = useState<QuickSupplierValue[]>([]);
+    const allSuppliers = [...suppliers, ...addedSuppliers.filter((item) => !suppliers.some((supplier) => supplier.id === item.id))];
+    const canManageSuppliers = usePage().props.auth.abilities.manageCatalog;
     const [classification, setClassification] = useState(
         inboxDocument.classification,
     );
@@ -255,9 +260,12 @@ export default function PurchaseInboxShow({
                     </section>
                 ) : !closed ? (
                     <>
+                        {canManageSuppliers && <QuickSupplier onSelect={(supplier) => {
+ setAddedSuppliers((items) => [...items, supplier]); changeSupplier(String(supplier.id));
+}} />}
                         <AssignmentForm
                             document={inboxDocument}
-                            suppliers={suppliers}
+                            suppliers={allSuppliers}
                             orders={availableOrders}
                             classification={classification}
                             supplierId={supplierId}
@@ -269,7 +277,7 @@ export default function PurchaseInboxShow({
                         <ConversionForm
                             document={inboxDocument}
                             extracted={extracted}
-                            suppliers={suppliers}
+                            suppliers={allSuppliers}
                             orders={availableOrders}
                             classification={classification}
                             supplierId={supplierId}
