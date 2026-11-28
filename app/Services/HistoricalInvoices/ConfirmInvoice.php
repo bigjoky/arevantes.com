@@ -42,8 +42,20 @@ final class ConfirmInvoice
             if ($row->status !== 'review_required') {
                 throw ValidationException::withMessages(['row' => 'El estado de la preparación no permite registrarla.']);
             }
-            if (array_diff(array_keys($data), [...CsvReader::COLUMNS, 'supplier_id', 'expense_category_id', 'notes', '_staging_year']) !== [] || filled($data['received_date'] ?? null)) {
-                throw ValidationException::withMessages(['row' => 'Este documento contiene datos que requieren revisión adicional.']);
+            $unsupportedFields = array_values(array_diff(array_keys($data), [...CsvReader::COLUMNS, 'supplier_id', 'expense_category_id', 'notes', '_staging_year']));
+            if ($unsupportedFields !== []) {
+                throw ValidationException::withMessages(['row' => 'El documento contiene campos no admitidos en esta regularización: '.implode(', ', $unsupportedFields).'.']);
+            }
+            // A receipt date identical to the issue date adds no fiscal fact to
+            // this narrow flow. Older imports commonly repeated it in both
+            // columns, which must not turn an otherwise simple invoice into a
+            // review case. A different receipt date is still intentionally
+            // blocked: it needs the separate documentary/fiscal treatment.
+            if (($data['received_date'] ?? null) === ($data['issue_date'] ?? null)) {
+                $data['received_date'] = null;
+            }
+            if (filled($data['received_date'] ?? null)) {
+                throw ValidationException::withMessages(['received_date' => 'La fecha de recepción es distinta de la emisión y requiere revisión documental y fiscal antes de registrar la factura.']);
             }
             $data['accounting_date'] = $accountingDate;
             Validator::make($data, [

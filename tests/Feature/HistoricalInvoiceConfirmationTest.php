@@ -140,4 +140,33 @@ class HistoricalInvoiceConfirmationTest extends TestCase
             }
         }
     }
+
+    public function test_receipt_date_that_only_duplicates_issue_date_does_not_block_confirmation(): void
+    {
+        [$user, $row] = $this->prepared();
+        $document = json_decode(DB::table('historical_invoice_rows')->where('id', $row)->value('document'), true);
+        $document['received_date'] = $document['issue_date'];
+        DB::table('historical_invoice_rows')->where('id', $row)->update(['document' => json_encode($document)]);
+
+        $expense = app(ConfirmInvoice::class)->confirm($row, $user, '2026-03-15');
+
+        $this->assertSame('HIST-1', $expense->document_number);
+        $this->assertDatabaseHas('historical_invoice_rows', ['id' => $row, 'expense_id' => $expense->id, 'status' => 'registered']);
+    }
+
+    public function test_different_receipt_date_identifies_the_documentary_review_blocker(): void
+    {
+        [$user, $row] = $this->prepared();
+        $document = json_decode(DB::table('historical_invoice_rows')->where('id', $row)->value('document'), true);
+        $document['received_date'] = '2026-01-20';
+        DB::table('historical_invoice_rows')->where('id', $row)->update(['document' => json_encode($document)]);
+
+        try {
+            app(ConfirmInvoice::class)->confirm($row, $user, '2026-03-15');
+            $this->fail('A distinct documented receipt date must remain in review.');
+        } catch (ValidationException $exception) {
+            $this->assertSame('La fecha de recepción es distinta de la emisión y requiere revisión documental y fiscal antes de registrar la factura.', $exception->errors()['received_date'][0]);
+            $this->assertDatabaseCount('expenses', 0);
+        }
+    }
 }

@@ -1,5 +1,9 @@
 # Roadmap unificado de Arevantes
 
+## REG-2026 — corrección de fecha redundante y significado de campos, 28/11/2026
+
+La confirmación normaliza una fecha de recepción idéntica a la fecha de emisión: es un dato duplicado que no aporta un hecho fiscal adicional y bloqueaba espuriamente facturas sencillas importadas. Una fecha de recepción diferente sigue bloqueando el registro y explica de forma expresa que necesita revisión documental y fiscal; los campos desconocidos se enumeran en vez de ocultarse tras un aviso genérico. La interfaz aclara que el número solicitado es el de la factura del proveedor, nunca la orden o el número interno de contabilización; el ERP asigna los identificadores internos al registrar. «Notas» son observaciones internas. «Referencia documental» es el identificador complementario del justificante (albarán, contrato o expediente), distinto de ambos números; aún no existe un campo estructurado para ella y se conserva temporalmente en notas con el prefijo `Ref. documental:`. Dependencia abierta: contrato aditivo con campo tipado y trazable de referencia documental, mapeo CSV y persistencia separada en el gasto, sin reescribir filas históricas. Aceptación: confirmar una factura simple con fecha de recepción igual a emisión, rechazar una recepción distinta sin crear gasto/asiento y mostrar la razón accionable; verificar manualmente la fila de producción antes de confirmarla. No se modifican datos de producción ni se activa confirmación automática.
+
 ## Estado vigente y orden de ejecución — 05/10/2026
 
 **Prioridad ACC-PGC.01 (05/10):** revisión solicitada frente al PGC del BOE.
